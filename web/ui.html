@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pentia v4 — Red Team AI</title>
+  <style>
+    :root{--bg:#0a0e0f;--bg2:#111618;--bg3:#1a1f21;--border:#1e2d25;--green:#00ff88;--green2:#00cc66;--red:#ff3860;--cyan:#00d4ff;--yellow:#ffd700;--orange:#ff8c00;--text:#c8d8c8;--dim:#5a7060;--bright:#e8ffe8}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono','Fira Code',monospace;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+    header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;height:56px;gap:16px;flex-shrink:0}
+    .logo{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700;color:var(--green);letter-spacing:2px}
+    .logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--green),var(--cyan));border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:16px}
+    .badge{background:var(--bg3);border:1px solid var(--border);color:var(--dim);font-size:10px;padding:2px 7px;border-radius:10px;letter-spacing:1px}
+    .status{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim)}
+    .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .main{display:flex;flex:1;overflow:hidden}
+    nav{width:190px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:12px 0;flex-shrink:0}
+    .nav-label{font-size:9px;color:var(--dim);letter-spacing:2px;padding:12px 16px 6px;text-transform:uppercase}
+    .nav-btn{display:flex;align-items:center;gap:10px;padding:9px 16px;cursor:pointer;font-size:12px;color:var(--dim);border:none;background:none;text-align:left;width:100%;transition:all .15s;border-left:2px solid transparent;font-family:inherit;text-decoration:none}
+    .nav-btn:hover{color:var(--text);background:var(--bg3)}
+    .nav-btn.active{color:var(--green);border-left-color:var(--green);background:rgba(0,255,136,.07)}
+    .content{flex:1;display:flex;flex-direction:column;overflow:hidden}
+    .panel{display:none;flex-direction:column;height:100%;padding:20px;overflow:hidden;gap:12px}
+    .panel.active{display:flex}
+    .panel-title{font-size:15px;font-weight:700;color:var(--bright);display:flex;align-items:center;gap:8px}
+    .panel-title em{color:var(--green);font-style:normal}
+    .form-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+    .form-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:130px}
+    label{font-size:10px;color:var(--dim);letter-spacing:1px;text-transform:uppercase}
+    input,select{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:8px 12px;border-radius:5px;font-family:inherit;font-size:13px;transition:border-color .15s;outline:none}
+    input:focus,select:focus{border-color:var(--green)}
+    .btn{padding:9px 20px;border:none;border-radius:5px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;letter-spacing:1px;transition:all .15s}
+    .btn-p{background:var(--green);color:#000}
+    .btn-p:hover{background:var(--green2)}
+    .btn-s{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
+    .btn-s:hover{border-color:var(--green);color:var(--green)}
+    .out{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:14px;overflow-y:auto;font-size:12px;line-height:1.7;white-space:pre-wrap;word-break:break-word}
+    .ci{color:var(--cyan)}.cs{color:var(--green)}.cw{color:var(--yellow)}.ce{color:var(--red)}.cd{color:var(--dim)}.cl{color:var(--orange);font-weight:bold}
+    .cve-tbl{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
+    .cve-tbl th{background:var(--bg3);color:var(--dim);padding:7px 10px;text-align:left;text-transform:uppercase;letter-spacing:1px;font-size:10px;border-bottom:1px solid var(--border)}
+    .cve-tbl td{padding:7px 10px;border-bottom:1px solid var(--border)}
+    .cve-tbl tr:hover td{background:var(--bg3)}
+    .sv{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700}
+    .sc{background:rgba(255,56,96,.2);color:var(--red);border:1px solid var(--red)}
+    .sh{background:rgba(255,140,0,.15);color:var(--orange);border:1px solid var(--orange)}
+    .sm{background:rgba(255,215,0,.12);color:var(--yellow);border:1px solid var(--yellow)}
+    .sl{background:rgba(0,255,136,.1);color:var(--green);border:1px solid var(--green)}
+    .chat-msgs{flex:1;overflow-y:auto;padding:4px 0;display:flex;flex-direction:column;gap:12px}
+    .msg{display:flex;gap:12px;max-width:90%}
+    .msg.user{align-self:flex-end;flex-direction:row-reverse}
+    .av{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+    .msg.user .av{background:var(--bg3);border:1px solid var(--border)}
+    .msg.ai .av{background:rgba(0,255,136,.12);border:1px solid var(--green)}
+    .bubble{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 13px;font-size:12px;line-height:1.6;white-space:pre-wrap}
+    .msg.user .bubble{border-color:var(--cyan)}
+    .msg.ai .bubble{border-color:var(--green)}
+    .chat-in-row{display:flex;gap:10px;padding-top:10px;border-top:1px solid var(--border)}
+    textarea.cin{flex:1;background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:9px 13px;border-radius:6px;font-family:inherit;font-size:13px;outline:none;resize:none;transition:border-color .15s}
+    textarea.cin:focus{border-color:var(--green)}
+    .spin{display:inline-block;width:11px;height:11px;border:2px solid var(--border);border-top-color:var(--green);border-radius:50%;animation:sp .6s linear infinite;margin-right:5px}
+    @keyframes sp{to{transform:rotate(360deg)}}
+    ::-webkit-scrollbar{width:4px}
+    ::-webkit-scrollbar-track{background:var(--bg2)}
+    ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+  </style>
+</head>
+<body>
+<header>
+  <div class="logo"><div class="logo-icon">⚡</div>PENTIA</div>
+  <span class="badge">v4.0 · RED TEAM AI</span>
+  <div class="status"><div class="dot"></div>ONLINE</div>
+</header>
+<div class="main">
+  <nav>
+    <div class="nav-label">Módulos</div>
+    <button class="nav-btn active" onclick="sw('chat',this)"><span>🤖</span> AI Chat</button>
+    <button class="nav-btn" onclick="sw('cve',this)"><span>🔍</span> CVE Intel</button>
+    <button class="nav-btn" onclick="sw('recon',this)"><span>🌐</span> Recon</button>
+    <button class="nav-btn" onclick="sw('memory',this)"><span>🧠</span> Memoria</button>
+    <div class="nav-label" style="margin-top:auto">Sistema</div>
+    <button class="nav-btn" onclick="ping()"><span>💚</span> Health</button>
+    <a class="nav-btn" href="/api/docs" target="_blank"><span>📖</span> API Docs</a>
+  </nav>
+  <div class="content">
+
+    <div id="p-chat" class="panel active">
+      <div class="panel-title"><em>🤖</em> AI Chat — Pentia Intelligence</div>
+      <div class="form-row">
+        <div class="form-group" style="flex:0 0 180px"><label>Modelo</label>
+          <select id="cm"><option value="qwen2.5-coder">qwen2.5-coder</option><option value="llama3.1">llama3.1</option><option value="mistral">mistral</option><option value="codellama">codellama</option></select></div>
+        <div class="form-group" style="flex:0 0 150px"><label>Memoria RAG</label>
+          <select id="cmem"><option value="true">Activada</option><option value="false">Desactivada</option></select></div>
+        <button class="btn btn-s" onclick="clearChat()">Limpiar</button>
+      </div>
+      <div class="chat-msgs" id="chat-msgs"></div>
+      <div class="chat-in-row">
+        <textarea class="cin" id="cin" rows="2" placeholder="Pregunta algo... (Enter enviar · Shift+Enter nueva línea)"></textarea>
+        <button class="btn btn-p" onclick="sendChat()" style="align-self:flex-end">Enviar</button>
+      </div>
+    </div>
+
+    <div id="p-cve" class="panel">
+      <div class="panel-title"><em>🔍</em> CVE Intelligence</div>
+      <div class="form-row">
+        <div class="form-group"><label>Target</label><input id="ct" placeholder="scanme.nmap.org"/></div>
+        <div class="form-group"><label>Servicio</label><input id="cs" placeholder="Apache"/></div>
+        <div class="form-group"><label>Versión (opcional)</label><input id="cv" placeholder="2.4.49"/></div>
+        <button class="btn btn-p" onclick="runCVE()">Analizar</button>
+      </div>
+      <div class="out" id="cve-out"><span class="cd">Ingresa target y servicio para buscar CVEs...</span></div>
+    </div>
+
+    <div id="p-recon" class="panel">
+      <div class="panel-title"><em>🌐</em> Recon Pipeline</div>
+      <div class="form-row">
+        <div class="form-group"><label>Target</label><input id="rt" placeholder="example.com o 192.168.1.1"/></div>
+        <div class="form-group" style="flex:0 0 130px"><label>Modo</label>
+          <select id="rf"><option value="false">Full</option><option value="true">Fast</option></select></div>
+        <button class="btn btn-p" onclick="runRecon()">Lanzar</button>
+      </div>
+      <div class="out" id="recon-out"><span class="cd">⚠ El recon real requiere nmap, nuclei, ffuf instalados.</span></div>
+    </div>
+
+    <div id="p-memory" class="panel">
+      <div class="panel-title"><em>🧠</em> Memoria RAG Semántica</div>
+      <div class="form-row">
+        <div class="form-group"><label>Consulta</label><input id="mq" placeholder="Apache RCE exploits 2024"/></div>
+        <div class="form-group" style="flex:0 0 90px"><label>Top K</label><input id="mk" type="number" value="5" min="1" max="20"/></div>
+        <button class="btn btn-p" onclick="runMemory()">Buscar</button>
+      </div>
+      <div class="out" id="memory-out"><span class="cd">Busca en la memoria local (ChromaDB + embeddings)...</span></div>
+    </div>
+
+  </div>
+</div>
+<script>
+function sw(name,btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('p-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+const msgs=document.getElementById('chat-msgs');
+document.getElementById('cin').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}});
+function addMsg(role,text){
+  const d=document.createElement('div');d.className='msg '+role;
+  const av=document.createElement('div');av.className='av';av.textContent=role==='user'?'👤':'🤖';
+  const b=document.createElement('div');b.className='bubble';b.textContent=text;
+  d.appendChild(av);d.appendChild(b);msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;return b;
+}
+function addLoad(){const d=document.createElement('div');d.className='msg ai';d.id='ld';d.innerHTML='<div class="av">🤖</div><div class="bubble"><span class="spin"></span>Procesando...</div>';msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;}
+function rmLoad(){const e=document.getElementById('ld');if(e)e.remove();}
+async function sendChat(){
+  const inp=document.getElementById('cin');const txt=inp.value.trim();if(!txt)return;
+  inp.value='';addMsg('user',txt);addLoad();
+  try{
+    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:txt,model:document.getElementById('cm').value,memory_enabled:document.getElementById('cmem').value==='true'})});
+    const d=await r.json();rmLoad();addMsg('ai',d.response||d.error||'Sin respuesta');
+  }catch(e){rmLoad();addMsg('ai','⚠ Error: '+e.message);}
+}
+function clearChat(){msgs.innerHTML='';addMsg('ai','Historial limpiado. ¿En qué puedo ayudarte?');}
+async function runCVE(){
+  const out=document.getElementById('cve-out');
+  const t=document.getElementById('ct').value.trim(),s=document.getElementById('cs').value.trim(),v=document.getElementById('cv').value.trim();
+  if(!t||!s){out.innerHTML='<span class="ce">✗ Target y servicio requeridos.</span>';return;}
+  out.innerHTML='<span class="spin"></span><span class="cd">Buscando CVEs...</span>';
+  try{
+    const r=await fetch('/api/cve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target:t,service:s,version:v||null})});
+    const d=await r.json();
+    if(d.error){out.innerHTML=`<span class="ce">✗ ${d.error}</span>`;return;}
+    let h=`<span class="cl">CPE:</span> <span class="ci">${d.cpe||'N/A'}</span>\n<span class="cl">CVEs:</span> <span class="${d.cves?.length?'cw':'cs'}">${d.cves?.length||0}</span>\n\n`;
+    if(d.cves&&d.cves.length){
+      h+='<table class="cve-tbl"><tr><th>CVE</th><th>CVSS</th><th>Severity</th><th>KEV</th><th>Exploit</th><th>MSF</th></tr>';
+      d.cves.sort((a,b)=>(b.cvss||0)-(a.cvss||0)).forEach(c=>{
+        const sc={'CRITICAL':'sc','HIGH':'sh','MEDIUM':'sm','LOW':'sl'}[c.severity]||'';
+        h+=`<tr><td><b>${c.id}</b></td><td><b>${(c.cvss||0).toFixed(1)}</b></td><td><span class="sv ${sc}">${c.severity||'?'}</span></td><td>${c.kev?'🔴':'<span class="cd">–</span>'}</td><td>${c.exploit_available?'⚠️':'<span class="cd">–</span>'}</td><td>${c.metasploit?'💀':'<span class="cd">–</span>'}</td></tr>`;
+      });
+      h+='</table>';
+    }else{h+='<span class="cs">✓ Sin CVEs críticos detectados.</span>';}
+    out.innerHTML=h;
+  }catch(e){out.innerHTML=`<span class="ce">✗ ${e.message}</span>`;}
+}
+async function runRecon(){
+  const out=document.getElementById('recon-out');
+  const t=document.getElementById('rt').value.trim(),f=document.getElementById('rf').value==='true';
+  if(!t){out.innerHTML='<span class="ce">✗ Target requerido.</span>';return;}
+  out.innerHTML=`<span class="spin"></span><span class="cd">Ejecutando recon sobre ${t}...</span>`;
+  try{
+    const r=await fetch('/api/recon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target:t,fast:f})});
+    const d=await r.json();
+    if(d.error){out.innerHTML=`<span class="ce">✗ ${d.error}</span>`;return;}
+    let h=`<span class="cs">✓ Recon: ${d.target}</span>\n\n`;
+    Object.entries(d.results||{}).forEach(([k,v])=>{h+=`<span class="cl">${k.toUpperCase()}:</span>\n${v||'<span class="cd">sin datos</span>'}\n\n`;});
+    out.innerHTML=h;
+  }catch(e){out.innerHTML=`<span class="ce">✗ ${e.message}</span>`;}
+}
+async function runMemory(){
+  const out=document.getElementById('memory-out');
+  const q=document.getElementById('mq').value.trim(),k=parseInt(document.getElementById('mk').value)||5;
+  if(!q){out.innerHTML='<span class="ce">✗ Consulta requerida.</span>';return;}
+  out.innerHTML=`<span class="spin"></span><span class="cd">Buscando: ${q}...</span>`;
+  try{
+    const r=await fetch('/api/memory/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q,k})});
+    const d=await r.json();
+    if(d.error){out.innerHTML=`<span class="ce">✗ ${d.error}</span>`;return;}
+    const res=d.results||[];
+    if(!res.length){out.innerHTML='<span class="cw">Sin resultados. Usa pentia ingest-intel para cargar datos.</span>';return;}
+    let h=`<span class="cs">✓ ${res.length} resultado(s)</span>\n\n`;
+    res.forEach((r,i)=>{h+=`<span class="cl">[ ${i+1} ]</span> <span class="cd">${JSON.stringify(r.metadata||{})}</span>\n${r.text}\n\n`;});
+    out.innerHTML=h;
+  }catch(e){out.innerHTML=`<span class="ce">✗ ${e.message}</span>`;}
+}
+async function ping(){
+  try{const r=await fetch('/health');const d=await r.json();alert('✓ API online\nVersion: '+d.version);}
+  catch(e){alert('✗ API no disponible: '+e.message);}
+}
+// Init
+addMsg('ai','¡Hola! Soy Pentia v4, tu asistente Red Team AI.\n\nPuedo ayudarte con CVEs, técnicas de ataque, análisis de malware, configuraciones, y más. ¿Por dónde empezamos?');
+</script>
+</body>
+</html>

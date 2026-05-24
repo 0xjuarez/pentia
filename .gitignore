@@ -1,0 +1,88 @@
+# Entorno virtual
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Bases de datos y cache
+*.db
+*.sqlite
+*.sqlite3
+chroma.db/
+*.chroma/
+.cache/
+cache/
+
+# Modelos y datos
+models/
+*.bin
+*.pt
+*.pth
+*.onnx
+datasets/*.json
+datasets/*.jsonl
+!datasets/__init__.py
+
+# Outputs y reports
+reports/*.md
+reports/*.json
+results/
+output/
+logs/
+*.log
+
+# Archivos sensibles
+.env
+.env.local
+*.key
+*.pem
+*.p12
+config.local.json
+secrets.json
+
+# Temporales
+*.tmp
+tmp/
+temp/
+*.temp
+
+# OS
+.DS_Store
+Thumbs.db
+.AppleDouble
+
+# Dependencias heavy (ML/AI) opcionales
+# Si instalaste INSTALL_HEAVY=1, considerar no sincronizar
+# chroma/
+# faiss/

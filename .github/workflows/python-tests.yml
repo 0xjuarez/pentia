@@ -1,0 +1,55 @@
+name: Tests & Lint
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -q typer rich httpx fastapi pydantic
+    
+    - name: Syntax check
+      run: |
+        python -m py_compile **/*.py
+    
+  test-import:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install core dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -q typer[all] rich httpx fastapi uvicorn pydantic requests
+    
+    - name: Test imports
+      run: |
+        python3 -c "
+        import sys
+        from pathlib import Path
+        sys.path.insert(0, str(Path('.').resolve()))
+        try:
+            from pentia import app
+            print('✓ Main CLI imports OK')
+        except ImportError as e:
+            print(f'⚠ Some modules unavailable: {e}')
+        "

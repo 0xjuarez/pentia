@@ -1,0 +1,19 @@
+# Core (requerido)
+typer[all]
+rich
+httpx
+requests
+fastapi
+uvicorn
+pydantic
+
+# ML/AI (opcional — instala con INSTALL_HEAVY=1 ./install.sh)
+# chromadb
+# sentence-transformers
+# xgboost
+# lightgbm
+# scikit-learn
+# networkx
+# faiss-cpu
+# pefile
+# torch

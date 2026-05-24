@@ -1,0 +1,31 @@
+[project]
+name = "pentia"
+version = "4.0.0"
+description = "Pentia v4 — Red Team AI Platform by DevSecurityMX"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "typer[all]",
+    "rich",
+    "httpx",
+    "requests",
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    # ML/AI (instala con INSTALL_HEAVY=1 ./install.sh)
+    # "chromadb",
+    # "sentence-transformers",
+    # "xgboost",
+    # "lightgbm",
+    # "scikit-learn",
+    # "networkx",
+    # "faiss-cpu",
+    # "pefile",
+]
+
+[project.scripts]
+pentia = "pentia:app"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
