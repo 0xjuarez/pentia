@@ -44,7 +44,7 @@ Si planeas usar **características ML/AI completas** (clasificación, RAG, embed
 ### 1. Clonar el repositorio
 
 ```bash
-git clone https://github.com/tu-usuario/pentia.git pentia
+https://github.com/0xjuarez/pentia.git pentia
 cd pentia
 chmod +x install.sh
 ```
