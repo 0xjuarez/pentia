@@ -86,3 +86,4 @@ Thumbs.db
 # Si instalaste INSTALL_HEAVY=1, considerar no sincronizar
 # chroma/
 # faiss/
+.env
