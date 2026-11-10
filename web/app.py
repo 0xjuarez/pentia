@@ -28,7 +28,7 @@ from core.validation import validate_model_name, validate_target
 logger = logging.getLogger("pentia.web")
 logger.setLevel(logging.INFO)
 
-VERSION = "4.0.2"
+VERSION = "4.0.3"
 
 
 class ChatRequest(BaseModel):
