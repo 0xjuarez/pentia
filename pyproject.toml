@@ -1,25 +1,29 @@
 [project]
 name = "pentia"
-version = "4.0.0"
+version = "4.0.1"
 description = "Pentia v4 — Red Team AI Platform by DevSecurityMX"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "typer[all]",
-    "rich",
-    "httpx",
-    "requests",
-    "fastapi",
-    "uvicorn",
-    "pydantic",
-    # ML/AI (instala con INSTALL_HEAVY=1 ./install.sh)
+    "typer[all]>=0.12,<0.21",
+    "rich>=13.7,<15",
+    "httpx>=0.27,<0.29",
+    "requests>=2.32,<2.33",
+    "fastapi>=0.115,<0.130",
+    "uvicorn>=0.30,<0.38",
+    "pydantic>=2.9,<3",
+    # Ollama Python client (opcional): el CLI `ollama` es el fallback y
+    # funciona sin este paquete, por eso NO es una dependencia obligatoria.
+    # "ollama>=0.4,<0.6",
+    # ML/AI opcionales (instala con INSTALL_HEAVY=1 ./install.sh).
+    # Intencionadamente sin fijar versión: son opcionales y se instalan
+    # solo bajo demanda; fijarlas aquí obligaría a resolverlas siempre.
     # "chromadb",
     # "sentence-transformers",
     # "xgboost",
     # "lightgbm",
     # "scikit-learn",
     # "networkx",
-    # "faiss-cpu",
     # "pefile",
 ]
 
@@ -27,5 +31,21 @@ dependencies = [
 pentia = "pentia:app"
 
 [build-system]
+# NOTE (4.0.1): the previous backend "setuptools.backends.legacy:build"
+# does not exist in current setuptools, so `pip install .` failed with
+# "backend-unavailable". setuptools.build_meta is the standard backend.
 requires = ["setuptools>=68"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# NOTE (4.0.1): explicit discovery — setuptools refuses automatic
+# discovery here ("Multiple top-level packages discovered in a
+# flat-layout"), so `pip install .` failed before this was added.
+# Only real code packages are listed; datasets/, knowledge/, memory/
+# are empty stub packages that nothing imports, and assets/ is data.
+py-modules = ["pentia"]
+packages = ["core", "scanners", "plugins", "pipelines", "neural", "reports", "web", "scripts"]
+
+[tool.setuptools.package-data]
+# web/app.py serves web/ui.html from its own directory at runtime.
+web = ["*.html"]

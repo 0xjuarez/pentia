@@ -107,7 +107,7 @@
 
 1. **Revisar todo está correcto**:
    ```bash
-   cd /home/venus/ai/pentia_v4
+   cd ~/pentia
    git status
    ```
 
@@ -142,7 +142,7 @@
 Verificación de que todo está listo:
 
 ```bash
-# En /home/venus/ai/pentia_v4:
+# En ~/pentia:
 
 # 1. Archivos clave existen
 ls -la README.md CHANGELOG.md CONTRIBUTING.md LICENSE.md .gitignore

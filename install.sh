@@ -56,9 +56,16 @@ check_pip() {
   if python3 -m pip --version &>/dev/null; then
     ok "pip disponible"
   else
-    info "Instalando pip..."
-    curl -sS https://bootstrap.pypa.io/get-pip.py | python3 -
-    ok "pip instalado"
+    # No descargamos ni ejecutamos get-pip.py (piping an installer into
+    # the interpreter es inseguro y oculta fallos). El usuario debe instalar
+    # pip con su gestor de paquetes.
+    fail "pip no encontrado."
+    printf "  Instálalo con tu gestor de paquetes, por ejemplo:\n"
+    printf "    Debian/Ubuntu/Fedora:  sudo apt install python3-pip\n"
+    printf "    Fedora/RHEL:           sudo dnf install python3-pip\n"
+    printf "    macOS (Homebrew):      brew install python\n"
+    printf "    Arch:                  sudo pacman -S python-pip\n"
+    exit 1
   fi
 }
 
@@ -81,7 +88,7 @@ check_ollama() {
 
 check_tools() {
   step "4/6" "Herramientas Red Team (opcionales)"
-  for t in nmap nuclei ffuf subfinder whatweb sqlmap; do
+  for t in nmap nuclei ffuf subfinder whatweb sqlmap rustscan wpscan; do
     if command -v "$t" &>/dev/null; then
       ok "$t"
     else
@@ -109,10 +116,10 @@ install_python_deps() {
   fi
   
   info "Actualizando pip..."
-  python3 -m pip install -q --upgrade pip 2>/dev/null || warn "Error actualizando pip"
+  python3 -m pip install -q --upgrade pip || warn "Error actualizando pip"
 
-  info "Instalando dependencias core..."
-  python3 -m pip install -q typer"[all]" rich httpx fastapi uvicorn pydantic requests 2>/dev/null || {
+  info "Instalando dependencias core (versiones fijadas en requirements.txt)..."
+  python3 -m pip install -r "$SCRIPT_DIR/requirements.txt" || {
     fail "Error instalando dependencias core"
     exit 1
   }
@@ -120,10 +127,12 @@ install_python_deps() {
 
   if [ "${INSTALL_HEAVY:-0}" = "1" ]; then
     info "Instalando dependencias ML/AI (esto puede tardar)..."
-    python3 -m pip install -q chromadb sentence-transformers xgboost lightgbm scikit-learn networkx faiss-cpu pefile 2>/dev/null || {
-      warn "Algunos paquetes ML/AI fallaron (esto es normal si falta compiladores)"
-    }
-    ok "ML/AI instalado"
+    if python3 -m pip install -q chromadb sentence-transformers xgboost lightgbm scikit-learn networkx pefile; then
+      ok "ML/AI instalado"
+    else
+      warn "Algunos paquetes ML/AI fallaron (esto es normal si faltan compiladores)"
+      warn "ML/AI NO instalado — las funciones de memoria/RAG no estarán disponibles"
+    fi
   else
     warn "Dependencias ML/AI saltadas"
     info "Actívalas con: ${CYN}INSTALL_HEAVY=1 ./install.sh${NC}"

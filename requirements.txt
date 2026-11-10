@@ -1,19 +1,23 @@
-# Core (requerido)
-typer[all]
-rich
-httpx
-requests
-fastapi
-uvicorn
-pydantic
+# Core (requerido) — rangos acotados; install.sh instala desde este archivo.
+typer[all]>=0.12,<0.21
+rich>=13.7,<15
+httpx>=0.27,<0.29
+requests>=2.32,<2.33
+fastapi>=0.115,<0.130
+uvicorn>=0.30,<0.38
+pydantic>=2.9,<3
+
+# Ollama Python client (opcional): el CLI `ollama` es el fallback y funciona
+# sin este paquete, por eso NO es una dependencia obligatoria.
+# ollama>=0.4,<0.6
 
 # ML/AI (opcional — instala con INSTALL_HEAVY=1 ./install.sh)
+# Intencionadamente sin fijar versión: son opcionales y se instalan solo
+# bajo demanda; fijarlas aquí obligaría a resolverlas siempre.
 # chromadb
 # sentence-transformers
 # xgboost
 # lightgbm
 # scikit-learn
 # networkx
-# faiss-cpu
 # pefile
-# torch

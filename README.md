@@ -21,6 +21,16 @@ v4 · Red Team AI Platform
 >
 > **No esperes que funcione perfectamente a la primera.** Si encuentras issues, por favor reportalos.
 
+> **4.0.1 (2026-11-10) — Revisión de seguridad y hardening.** Esta versión
+> corrige lo encontrado en una auditoría completa: validación de targets
+> (nada que empiece con `-` o con metacaracteres llega a los scanners),
+> timeouts y verificación de binarios en todos los scanners, CORS y
+> localhost-only en la Web UI (sin auth por diseño), XSS escapado en la UI
+> y en los reportes, parseo NVD 2.0 (antes devolvía todo `None`),
+> dependencias con rangos acotados y suite de tests (`pytest tests/`).
+> Detalle completo en [CHANGELOG.md](CHANGELOG.md) y [SECURITY.md](SECURITY.md).
+> La Web UI sigue sin autenticación: úsala solo en `127.0.0.1`.
+
 ### Requisitos Mínimos Recomendados
 
 Para un rendimiento aceptable, tu sistema debe tener:
@@ -44,7 +54,7 @@ Si planeas usar **características ML/AI completas** (clasificación, RAG, embed
 ### 1. Clonar el repositorio
 
 ```bash
-https://github.com/0xjuarez/pentia.git pentia
+git clone https://github.com/0xjuarez/pentia.git pentia
 cd pentia
 chmod +x install.sh
 ```
@@ -119,7 +129,7 @@ pentia version            # Info del sistema
 ```bash
 # ── Recon y Scanning ──
 pentia recon example.com           # Pipeline completo
-pentia recon example.com -f        # Modo rápido (sin nuclei)
+pentia recon example.com -f        # Modo rápido (sin ffuf)
 pentia web example.com             # Web enumeration
 pentia internal 192.168.1.0/24     # Scanning interno
 
@@ -348,4 +358,4 @@ Este es un proyecto personal sin licencia específica.
 ---
 
 **Última actualización**: Mayo 2026  
-**Versión**: 4.0.0 (En desarrollo)
+**Versión**: 4.0.1 (En desarrollo)

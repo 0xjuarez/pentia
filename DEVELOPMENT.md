@@ -222,9 +222,9 @@ logger.exception("Error inesperado")       # Con traceback
 source .venv/bin/activate
 python3 -c "
 import asyncio
-from scanners.nmap import scan
+from scanners.nmap import run_nmap
 
-result = asyncio.run(scan('127.0.0.1'))
+result = asyncio.run(run_nmap('127.0.0.1'))
 print(result)
 "
 ```

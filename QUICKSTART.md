@@ -41,7 +41,7 @@ Primero, **lee esto en orden**:
 
 ```bash
 # 1. Clonar
-git clone https://github.com/tu-usuario/pentia.git
+git clone https://github.com/0xjuarez/pentia.git
 cd pentia
 
 # 2. Instalar (instalación base)

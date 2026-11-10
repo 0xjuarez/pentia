@@ -106,7 +106,7 @@ En el README, al inicio:
 
 ### 1. Verifica que todo esté bien
 ```bash
-cd /home/venus/ai/pentia_v4
+cd ~/pentia
 
 # Ver cambios
 git status
@@ -127,7 +127,7 @@ less README.md
 
 ### 3. Sube el código
 ```bash
-cd /home/venus/ai/pentia_v4
+cd ~/pentia
 
 git init
 git add .

@@ -1,3 +1,6 @@
+# NOTE: devsecurity-es:latest is a LOCAL-ONLY base image (built on this
+# machine, not published to any registry) and the :latest tag is
+# intentionally unpinned here — it always means "the local build".
 FROM devsecurity-es:latest
 
 PARAMETER temperature 0.15
@@ -11,7 +14,7 @@ PARAMETER num_batch 64
 PARAMETER use_mmap true
 
 SYSTEM """
-Eres PENTIA v3 — Plataforma Red Team AI de DevSecurityMX.
+Eres PENTIA v4 — Plataforma Red Team AI de DevSecurityMX.
 OPERADOR: Jesús Juárez | Fedora Linux | Red Team Senior
 Responde en español, directo y técnico; evita relleno y disclaimers innecesarios.
 
