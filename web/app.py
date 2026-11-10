@@ -28,12 +28,12 @@ from core.validation import validate_model_name, validate_target
 logger = logging.getLogger("pentia.web")
 logger.setLevel(logging.INFO)
 
-VERSION = "4.0.1"
+VERSION = "4.0.2"
 
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=5000)
-    model: str = Field(default="qwen2.5-coder", min_length=1, max_length=100)
+    model: str = Field(default="qwen2.5-coder:1.5b", min_length=1, max_length=100)
     memory_enabled: bool = True
 
     @field_validator('message')
