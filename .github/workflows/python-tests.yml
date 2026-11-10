@@ -9,47 +9,60 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
     steps:
-    - uses: actions/checkout@v3
-    
+    - uses: actions/checkout@v4
+
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
-    
+        python-version: ${{ matrix.python-version }}
+
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -q typer rich httpx fastapi pydantic
-    
+
     - name: Syntax check
+      # NOTE: `python -m py_compile **/*.py` does not recurse (globstar is
+      # off in sh), so it only checked the top-level file. find covers
+      # every subdirectory instead.
       run: |
-        python -m py_compile **/*.py
-    
+        python -m py_compile $(find . -name '*.py' -not -path './.venv/*' -not -path './.git/*')
+
   test-import:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.11', '3.12']
     steps:
-    - uses: actions/checkout@v3
-    
+    - uses: actions/checkout@v4
+
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
-    
+        python-version: ${{ matrix.python-version }}
+
     - name: Install core dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -q typer[all] rich httpx fastapi uvicorn pydantic requests
-    
+        pip install -q typer[all] rich httpx fastapi uvicorn pydantic requests pytest
+
     - name: Test imports
+      # This job must FAIL if the CLI cannot be imported: the previous
+      # version swallowed ImportError and always exited 0.
       run: |
         python3 -c "
         import sys
         from pathlib import Path
         sys.path.insert(0, str(Path('.').resolve()))
-        try:
-            from pentia import app
-            print('✓ Main CLI imports OK')
-        except ImportError as e:
-            print(f'⚠ Some modules unavailable: {e}')
+        from pentia import app
+        print('✓ Main CLI imports OK')
         "
+
+    - name: Run tests
+      # tests/ is added separately by the coordinator; this step runs the
+      # smoke suite once it exists.
+      run: pytest tests/ -q
