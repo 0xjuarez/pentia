@@ -22,7 +22,7 @@ class LLMClient:
     ANSI_PATTERN = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
     SPINNER_PATTERN = re.compile(r"[\u2800-\u28FF\u2580-\u259F]+")
 
-    def __init__(self, model: str = "qwen2.5-coder", temperature: float = 0.1):
+    def __init__(self, model: str = "qwen2.5-coder:1.5b", temperature: float = 0.1):
         # The model name ends up as an argument to `ollama run`; reject
         # anything that is not a plain model name (no flags, no shell chars).
         self.model = validate_model_name(model)
@@ -98,7 +98,7 @@ class LLMClient:
             "Instalación:\n"
             "  1. Descarga desde: https://ollama.com/download\n"
             "  2. Inicia: ollama serve\n"
-            "  3. Descarga un modelo: ollama pull qwen2.5-coder\n"
+            "  3. Descarga un modelo: ollama pull qwen2.5-coder:1.5b\n"
             "  4. Reintenta: pentia chat"
         )
 
