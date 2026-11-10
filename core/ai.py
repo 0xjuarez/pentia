@@ -11,6 +11,8 @@ try:
 except ImportError:  # pragma: no cover
     ollama = None
 
+from core.validation import validate_model_name
+
 logger = logging.getLogger("pentia.ai")
 _executor = ThreadPoolExecutor(max_workers=4)
 
@@ -21,7 +23,9 @@ class LLMClient:
     SPINNER_PATTERN = re.compile(r"[\u2800-\u28FF\u2580-\u259F]+")
 
     def __init__(self, model: str = "qwen2.5-coder", temperature: float = 0.1):
-        self.model = model
+        # The model name ends up as an argument to `ollama run`; reject
+        # anything that is not a plain model name (no flags, no shell chars).
+        self.model = validate_model_name(model)
         self.temperature = temperature
         logger.debug(f"LLMClient inicializado con modelo: {model}")
 
@@ -45,18 +49,19 @@ class LLMClient:
             except Exception as e:
                 error_msg = self._clean_output(str(e))
                 logger.warning(f"Ollama Python client falló: {error_msg}")
-                
+
                 # Si el binario de ollama existe, intentar CLI
                 if shutil.which("ollama") is not None:
                     logger.debug("Ollama CLI disponible, intentando fallback")
                     fallback = self._find_fallback_model(exclude=self.model)
                     if fallback:
-                        self.model = fallback
+                        # Local variable only: never mutate self.model —
+                        # the configured model must survive a fallback.
                         logger.info(f"Usando modelo fallback: {fallback}")
                         return (
                             f"⚠️ Client Python de Ollama falló. Usando modelo de fallback: {fallback}\n\n"
                             + await asyncio.get_running_loop().run_in_executor(
-                                _executor, self._ollama_cli_generate, full_prompt
+                                _executor, self._ollama_cli_generate, full_prompt, True, fallback
                             )
                         )
                 return f"❌ Error Ollama: {error_msg}\n\nIntenta: ollama serve"
@@ -67,12 +72,11 @@ class LLMClient:
             if not self._ollama_model_available():
                 fallback = self._find_fallback_model(exclude=self.model)
                 if fallback:
-                    self.model = fallback
                     logger.info(f"Modelo {self.model} no disponible, usando: {fallback}")
                     return (
                         f"⚠️ Modelo '{self.model}' no estaba disponible. Usando fallback: {fallback}\n\n"
                         + await asyncio.get_running_loop().run_in_executor(
-                            _executor, self._ollama_cli_generate, full_prompt
+                            _executor, self._ollama_cli_generate, full_prompt, True, fallback
                         )
                     )
                 logger.error(f"Modelo '{self.model}' no instalado")
@@ -98,11 +102,14 @@ class LLMClient:
             "  4. Reintenta: pentia chat"
         )
 
-    def _ollama_generate(self, prompt: str) -> str:
-        """Llamar API de Ollama via cliente Python"""
+    def _ollama_generate(self, prompt: str, model: Optional[str] = None) -> str:
+        """Llamar API de Ollama via cliente Python (ollama.generate)."""
+        if ollama is None:
+            raise RuntimeError("El paquete Python 'ollama' no está instalado")
+        effective_model = model or self.model
         try:
             response = ollama.generate(
-                model=self.model,
+                model=effective_model,
                 prompt=prompt,
                 stream=False,
                 options={"temperature": self.temperature}
@@ -112,25 +119,53 @@ class LLMClient:
             logger.error(f"Error en _ollama_generate: {e}")
             raise
 
-    def _ollama_cli_generate(self, prompt: str) -> str:
-        """Fallback a CLI de Ollama"""
+    def _ollama_cli_generate(self, prompt: str, allow_retry: bool = True, model: Optional[str] = None) -> str:
+        """Fallback a CLI de Ollama (timeout 30s, con reintento a un fallback)."""
+        # The effective model is a local variable: falling back must never
+        # mutate self.model (the configured model survives the call).
+        effective_model = model or self.model
+        # The model name is passed as an argv element to `ollama run`;
+        # re-validate in case a fallback model was supplied after __init__.
+        validate_model_name(effective_model)
+        args = ["ollama", "run", effective_model, prompt]
         try:
             result = subprocess.run(
-                ["ollama", "run", self.model, prompt],
+                args,
                 capture_output=True,
                 text=True,
-                timeout=300
+                check=True,
+                timeout=30,
             )
-            if result.returncode != 0:
-                logger.error(f"ollama CLI error: {result.stderr}")
-                raise RuntimeError(f"Ollama error: {result.stderr}")
             return self._clean_output(result.stdout)
+        except subprocess.CalledProcessError as e:
+            output = self._clean_output(e.stderr or e.stdout)
+            lower = output.lower()
+            if allow_retry:
+                fallback = self._find_fallback_model(exclude=effective_model)
+                if fallback and (
+                    "requires more system memory" in lower
+                    or "not found" in lower
+                    or "not installed" in lower
+                    or "unknown model" in lower
+                ):
+                    fallback_output = self._ollama_cli_generate(prompt, allow_retry=False, model=fallback)
+                    return (
+                        f"Ollama detectó que '{effective_model}' no estaba disponible o no cabía. "
+                        f"Usando '{fallback}' en su lugar.\n\n{fallback_output}"
+                    )
+            return f"Ollama error: {output}"
         except subprocess.TimeoutExpired:
-            logger.error("Timeout esperando respuesta de Ollama")
-            raise RuntimeError("Timeout (5 min) esperando respuesta de Ollama")
-        except Exception as e:
-            logger.error(f"Error en _ollama_cli_generate: {e}")
-            raise
+            fallback = self._find_fallback_model(exclude=effective_model)
+            if allow_retry and fallback:
+                fallback_output = self._ollama_cli_generate(prompt, allow_retry=False, model=fallback)
+                return (
+                    f"Ollama run agotó el tiempo con '{effective_model}'. "
+                    f"Intentando modelo ligero '{fallback}'.\n\n{fallback_output}"
+                )
+            return (
+                "Ollama run agotó el tiempo. "
+                "Asegúrate de que el modelo está instalado y que hay suficiente memoria."
+            )
 
     def _fallback_generate(self, prompt: str) -> str:
         """Fallback cuando Ollama no está disponible"""
@@ -156,58 +191,7 @@ class LLMClient:
             return text.strip() if text else ""
 
     def _ollama_model_available(self) -> bool:
-        """Verificar si el modelo está disponible en Ollama CLI"""
-        try:
-            result = subprocess.run(
-                ["ollama", "list"],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            return self.model in result.stdout
-        except Exception as e:
-            logger.warning(f"Error verificando modelos de Ollama: {e}")
-            return False
-
-    def _find_fallback_model(self, exclude: str = "") -> Optional[str]:
-        """Encontrar un modelo fallback disponible"""
-        for model in self.FALLBACK_MODELS:
-            if model != exclude and self._model_exists(model):
-                logger.info(f"Modelo fallback encontrado: {model}")
-                return model
-        logger.warning("No hay modelos fallback disponibles")
-        return None
-
-    @staticmethod
-    def _model_exists(model: str) -> bool:
-        """Verificar si un modelo existe localmente"""
-        try:
-            result = subprocess.run(
-                ["ollama", "list"],
-                capture_output=True,
-                text=True,
-                timeout=10
-            )
-            return model in result.stdout
-        except Exception:
-            return False
-
-    def _clean_output(self, text: str) -> str:
-        if text is None:
-            return ""
-        clean = self.ANSI_PATTERN.sub("", text)
-        clean = self.SPINNER_PATTERN.sub("", clean)
-        clean = clean.replace("\r", "")
-        clean = re.sub(r"[ \t]+", " ", clean)
-        clean = re.sub(r"\n\s*\n+", "\n", clean)
-        return clean.strip()
-
-    def _ollama_generate(self, prompt: str) -> str:
-        client = ollama.Ollama()
-        response = client.chat(self.model, prompt, temperature=self.temperature)
-        return self._clean_output(response.text)
-
-    def _ollama_model_available(self) -> bool:
+        """Verificar si el modelo está disponible (`ollama show`)."""
         try:
             subprocess.run(
                 ["ollama", "show", self.model],
@@ -247,51 +231,3 @@ class LLMClient:
             if fallback in installed:
                 return fallback
         return installed[0] if installed else None
-
-    def _ollama_cli_generate(self, prompt: str, allow_retry: bool = True) -> str:
-        args = ["ollama", "run", self.model, prompt]
-        try:
-            result = subprocess.run(
-                args,
-                capture_output=True,
-                text=True,
-                check=True,
-                timeout=30,
-            )
-            return self._clean_output(result.stdout)
-        except subprocess.CalledProcessError as e:
-            output = self._clean_output(e.stderr or e.stdout)
-            lower = output.lower()
-            if allow_retry:
-                fallback = self._find_fallback_model(exclude=self.model)
-                if fallback and (
-                    "requires more system memory" in lower
-                    or "not found" in lower
-                    or "not installed" in lower
-                    or "unknown model" in lower
-                ):
-                    original = self.model
-                    self.model = fallback
-                    fallback_output = self._ollama_cli_generate(prompt, allow_retry=False)
-                    return (
-                        f"Ollama detectó que '{original}' no estaba disponible o no cabía. "
-                        f"Usando '{fallback}' en su lugar.\n\n{fallback_output}"
-                    )
-            return f"Ollama error: {output}"
-        except subprocess.TimeoutExpired:
-            fallback = self._find_fallback_model(exclude=self.model)
-            if allow_retry and fallback:
-                original = self.model
-                self.model = fallback
-                fallback_output = self._ollama_cli_generate(prompt, allow_retry=False)
-                return (
-                    f"Ollama run agotó el tiempo con '{original}'. "
-                    f"Intentando modelo ligero '{fallback}'.\n\n{fallback_output}"
-                )
-            return (
-                "Ollama run agotó el tiempo. "
-                "Asegúrate de que el modelo está instalado y que hay suficiente memoria."
-            )
-
-    def _fallback_generate(self, prompt: str) -> str:
-        return f"[LLM stub] prompt length={len(prompt)}"

@@ -16,14 +16,27 @@ class EmbeddingsProvider:
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
         self.model_name = model_name
         self.model = None
-        if SentenceTransformer is not None:
-            self.model = SentenceTransformer(model_name)
+        # Lazy load: SentenceTransformer construction downloads/loads the
+        # model at import time otherwise. Construct on first embed call.
+
+    def _ensure_model(self) -> bool:
+        """Construct the SentenceTransformer on first use; False if unavailable."""
+        if self.model is not None:
+            return True
+        if SentenceTransformer is None:
+            return False
+        try:
+            self.model = SentenceTransformer(self.model_name)
+            return True
+        except Exception:
+            self.model = None
+            return False
 
     async def embed_texts(self, texts: List[str]) -> List[List[float]]:
         if nomic_embed is not None:
             return await asyncio.to_thread(nomic_embed, texts)
 
-        if self.model is not None:
+        if self._ensure_model():
             return await asyncio.to_thread(self.model.encode, texts, show_progress_bar=False)
 
         raise RuntimeError("No embedding backend installed. Install nomic-embed-text or sentence-transformers.")

@@ -1,7 +1,8 @@
 import asyncio
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from scanners import nmap as nmap_scanner
+from scanners import nuclei as nuclei_scanner
 from scanners import web_enum
 from scanners import ad as ad_scanner
 from scanners import smb as smb_scanner
@@ -20,27 +21,37 @@ class Orchestrator:
         for line in nmap_output.splitlines():
             if "/tcp" in line and "open" in line:
                 parts = line.split()
-                if len(parts) >= 4:
+                # 3-part lines like "80/tcp open http" carry the service
+                # in parts[2]; longer lines do too.
+                if len(parts) >= 3:
                     services.append(parts[2].lower())
         return services
 
-    async def route(self, target: str, nmap_output: str) -> Dict[str, Any]:
+    async def route(self, target: str, nmap_output: str, skip: Optional[set] = None) -> Dict[str, Any]:
         decision = DecisionEngine.decide(nmap_output)
         services = decision["services"]
         actions = decision["actions"]
+        skip = skip or set()
 
-        results = {}
-        if "ffuf" in actions:
-            results["ffuf"] = await web_enum.run_ffuf(target)
-        if "nuclei" in actions:
-            results["nuclei"] = await nmap_scanner.run_nuclei(target)
-        if "wpscan" in actions:
-            results["wpscan"] = await web_pipeline.run_wpscan(target)
-        if "enum4linux" in actions:
-            results["enum4linux"] = await smb_scanner.run_enum4linux(target)
-        if "bloodhound" in actions:
-            results["bloodhound"] = await ad_scanner.run_bloodhound(target)
-        if "kerbrute" in actions:
+        # Run the selected scanners concurrently instead of sequentially.
+        # Each scanner enforces its own per-tool timeout via
+        # scanners/_common.py run_tool.
+        coros: Dict[str, Any] = {}
+        if "ffuf" in actions and "ffuf" not in skip:
+            coros["ffuf"] = web_enum.run_ffuf(target)
+        if "nuclei" in actions and "nuclei" not in skip:
+            coros["nuclei"] = nuclei_scanner.run_nuclei(target)
+        if "wpscan" in actions and "wpscan" not in skip:
+            coros["wpscan"] = web_pipeline.run_wpscan(target)
+        if "enum4linux" in actions and "enum4linux" not in skip:
+            coros["enum4linux"] = smb_scanner.run_enum4linux(target)
+        if "bloodhound" in actions and "bloodhound" not in skip:
+            coros["bloodhound"] = ad_scanner.run_bloodhound(target)
+
+        keys = list(coros)
+        outputs = await asyncio.gather(*coros.values(), return_exceptions=True)
+        results = dict(zip(keys, outputs))
+        if "kerbrute" in actions and "kerbrute" not in skip:
             results["kerbrute"] = {"status": "pending", "note": "kerbrute tool execution placeholder"}
 
         self.decisions = actions
@@ -54,7 +65,7 @@ class Orchestrator:
         tasks = [
             nmap_scanner.run_nmap(target),
             web_enum.run_web_enum(target),
-            nmap_scanner.run_nuclei(target),
+            nuclei_scanner.run_nuclei(target),
             web_enum.run_ffuf(target),
             web_enum.run_subfinder(target),
         ]

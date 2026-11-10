@@ -11,13 +11,16 @@ class KnowledgeGraph:
         if nx is not None:
             self.graph = nx.Graph()
         else:
-            self.graph = {"nodes": set(), "edges": []}
+            # Fallback sin networkx: los nodos van en un dict id -> (tipo,
+            # atributos) y las aristas en una lista de tuplas. Un dict de
+            # atributos NO puede vivir dentro de un set (dict no es hashable).
+            self.graph = {"nodes": {}, "edges": []}
 
     def add_entity(self, entity_id: str, entity_type: str, **attributes: Any):
         if nx is not None:
             self.graph.add_node(entity_id, type=entity_type, **attributes)
         else:
-            self.graph["nodes"].add((entity_id, entity_type, attributes))
+            self.graph["nodes"][entity_id] = (entity_type, attributes)
 
     def relate(self, source: str, target: str, relation: str, **attributes: Any):
         if nx is not None:

@@ -1,4 +1,10 @@
+import re
 from typing import Optional
+
+
+def _tokens(text: str) -> set[str]:
+    """Lowercase alphanumeric tokens of a string (word match, not substring)."""
+    return set(re.split(r"[^a-z0-9]+", text.lower()))
 
 
 def version_to_cpe(software: str, name: str, version: str) -> str:
@@ -25,12 +31,11 @@ def detect_cpe_from_service(service: str, version: Optional[str] = None) -> Opti
         product = "nginx"
     elif "iis" in s or "microsoft-iis" in s:
         product = "iis"
-    elif "wordpress" in s or "wp" in s:
+    elif "wordpress" in s or "wp" in _tokens(s):
         product = "wordpress"
     else:
         # fallback: try to split first word as product
-        product = s.split()[0]
+        product = s.split()[0] if s.split() else "unknown"
 
-    if version:
-        return version_to_cpe(service.split()[0], product, version)
-    return None
+    # Build a CPE even when no version is known ("*" = any version).
+    return version_to_cpe(service.split()[0] if service.split() else "unknown", product, version or "*")

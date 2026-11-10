@@ -1,8 +1,10 @@
 import asyncio
+import csv
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from .cve_engine import parse_nvd_item as _parse_nvd_item
 from .memory import MemoryStore
 
 
@@ -12,22 +14,14 @@ class CVEIntelligence:
 
     @staticmethod
     def parse_nvd_item(item: Dict[str, Any]) -> Dict[str, Any]:
-        cve_meta = item.get("cve", {})
-        cve_id = cve_meta.get("CVE_data_meta", {}).get("ID", "unknown")
-        description = ""
-        for desc in cve_meta.get("description", {}).get("description_data", []):
-            if desc.get("lang") == "en":
-                description = desc.get("value", "")
-                break
-        metrics = item.get("impact", {})
-        base_metric = metrics.get("baseMetricV3", metrics.get("baseMetricV2", {}))
-        cvss = base_metric.get("cvssV3", {}).get("baseScore") if isinstance(base_metric, dict) else None
-        references = [ref.get("url") for ref in cve_meta.get("references", {}).get("reference_data", []) if ref.get("url")]
+        # NVD 2.0 first (vulnerabilities[].cve.id/descriptions/metrics),
+        # legacy 1.x schema as fallback. Shared with core.cve_engine.
+        parsed = _parse_nvd_item(item)
         return {
-            "id": cve_id,
-            "summary": description,
-            "cvss": cvss,
-            "references": references,
+            "id": parsed.get("id") or "unknown",
+            "summary": parsed.get("description") or "",
+            "cvss": parsed.get("cvss"),
+            "references": parsed.get("references") or [],
             "source": "nvd",
         }
 
@@ -39,7 +33,8 @@ class CVEIntelligence:
         with open(path_obj, "r", encoding="utf-8") as handle:
             payload = json.load(handle)
 
-        items = payload.get("CVE_Items", [])
+        # NVD 2.0 feeds use "vulnerabilities"; legacy 1.x feeds use "CVE_Items".
+        items = payload.get("vulnerabilities") or payload.get("CVE_Items") or []
         documents = []
         for item in items:
             metadata = self.parse_nvd_item(item)
@@ -55,14 +50,22 @@ class CVEIntelligence:
             raise FileNotFoundError(f"ExploitDB file not found: {path}")
 
         documents = []
-        with open(path_obj, "r", encoding="utf-8", errors="ignore") as handle:
-            for line in handle:
-                parts = line.strip().split("\t")
-                if len(parts) >= 4:
-                    exploit_id, description, date, url = parts[0], parts[1], parts[2], parts[3]
-                    text = f"ExploitDB {exploit_id}: {description}"
-                    metadata = {"id": exploit_id, "source": "exploitdb", "url": url, "date": date}
-                    documents.append({"text": text, "metadata": metadata})
+        # ExploitDB files_exploits.csv is comma-delimited with columns:
+        # id,file,description,date,author,type,platform,port
+        with open(path_obj, "r", encoding="utf-8", errors="ignore", newline="") as handle:
+            for row in csv.reader(handle, delimiter=","):
+                if len(row) < 4:
+                    continue
+                if row[0].strip().lower() == "id":
+                    continue  # header row
+                exploit_id, file_field, description, date = (
+                    row[0].strip(), row[1].strip(), row[2].strip(), row[3].strip(),
+                )
+                if not exploit_id:
+                    continue
+                text = f"ExploitDB {exploit_id}: {description}"
+                metadata = {"id": exploit_id, "source": "exploitdb", "url": file_field, "date": date}
+                documents.append({"text": text, "metadata": metadata})
 
         await self.memory.ingest_documents(documents)
         return len(documents)

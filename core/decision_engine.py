@@ -1,3 +1,4 @@
+import re
 from typing import Dict, List
 
 
@@ -8,6 +9,7 @@ class DecisionEngine:
         "http": ["ffuf", "nuclei"],
         "wordpress": ["wpscan"],
         "ad": ["bloodhound"],
+        "ldap": ["enum4linux"],
     }
 
     @staticmethod
@@ -27,7 +29,7 @@ class DecisionEngine:
                 services.append("kerberos")
             if "ldap" in normalized or "389/tcp" in normalized:
                 services.append("ldap")
-            if "wordpress" in normalized or "wp" in normalized:
+            if "wordpress" in normalized or "wp" in set(re.split(r"[^a-z0-9]+", normalized)):
                 services.append("wordpress")
             if "microsoft-ds" in normalized:
                 services.append("ad")
