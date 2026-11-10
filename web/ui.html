@@ -143,6 +143,9 @@ function sw(name,btn){
   btn.classList.add('active');
 }
 const msgs=document.getElementById('chat-msgs');
+// Escape dynamic server data before it goes into innerHTML (XSS defense).
+// Static markup (spinners, layout) is left as-is.
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 document.getElementById('cin').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}});
 function addMsg(role,text){
   const d=document.createElement('div');d.className='msg '+role;
@@ -170,48 +173,48 @@ async function runCVE(){
   try{
     const r=await fetch('/api/cve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target:t,service:s,version:v||null})});
     const d=await r.json();
-    if(d.error){out.innerHTML=`<span class="ce">✗ ${d.error}</span>`;return;}
-    let h=`<span class="cl">CPE:</span> <span class="ci">${d.cpe||'N/A'}</span>\n<span class="cl">CVEs:</span> <span class="${d.cves?.length?'cw':'cs'}">${d.cves?.length||0}</span>\n\n`;
+    if(d.error){out.innerHTML=`<span class="ce">✗ ${esc(d.error)}</span>`;return;}
+    let h=`<span class="cl">CPE:</span> <span class="ci">${esc(d.cpe||'N/A')}</span>\n<span class="cl">CVEs:</span> <span class="${d.cves?.length?'cw':'cs'}">${d.cves?.length||0}</span>\n\n`;
     if(d.cves&&d.cves.length){
       h+='<table class="cve-tbl"><tr><th>CVE</th><th>CVSS</th><th>Severity</th><th>KEV</th><th>Exploit</th><th>MSF</th></tr>';
       d.cves.sort((a,b)=>(b.cvss||0)-(a.cvss||0)).forEach(c=>{
         const sc={'CRITICAL':'sc','HIGH':'sh','MEDIUM':'sm','LOW':'sl'}[c.severity]||'';
-        h+=`<tr><td><b>${c.id}</b></td><td><b>${(c.cvss||0).toFixed(1)}</b></td><td><span class="sv ${sc}">${c.severity||'?'}</span></td><td>${c.kev?'🔴':'<span class="cd">–</span>'}</td><td>${c.exploit_available?'⚠️':'<span class="cd">–</span>'}</td><td>${c.metasploit?'💀':'<span class="cd">–</span>'}</td></tr>`;
+        h+=`<tr><td><b>${esc(c.id)}</b></td><td><b>${(c.cvss||0).toFixed(1)}</b></td><td><span class="sv ${sc}">${esc(c.severity||'?')}</span></td><td>${c.kev?'🔴':'<span class="cd">–</span>'}</td><td>${c.exploit_available?'⚠️':'<span class="cd">–</span>'}</td><td>${c.metasploit?'💀':'<span class="cd">–</span>'}</td></tr>`;
       });
       h+='</table>';
     }else{h+='<span class="cs">✓ Sin CVEs críticos detectados.</span>';}
     out.innerHTML=h;
-  }catch(e){out.innerHTML=`<span class="ce">✗ ${e.message}</span>`;}
+  }catch(e){out.innerHTML=`<span class="ce">✗ ${esc(e.message)}</span>`;}
 }
 async function runRecon(){
   const out=document.getElementById('recon-out');
   const t=document.getElementById('rt').value.trim(),f=document.getElementById('rf').value==='true';
   if(!t){out.innerHTML='<span class="ce">✗ Target requerido.</span>';return;}
-  out.innerHTML=`<span class="spin"></span><span class="cd">Ejecutando recon sobre ${t}...</span>`;
+  out.innerHTML=`<span class="spin"></span><span class="cd">Ejecutando recon sobre ${esc(t)}...</span>`;
   try{
     const r=await fetch('/api/recon',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target:t,fast:f})});
     const d=await r.json();
-    if(d.error){out.innerHTML=`<span class="ce">✗ ${d.error}</span>`;return;}
-    let h=`<span class="cs">✓ Recon: ${d.target}</span>\n\n`;
-    Object.entries(d.results||{}).forEach(([k,v])=>{h+=`<span class="cl">${k.toUpperCase()}:</span>\n${v||'<span class="cd">sin datos</span>'}\n\n`;});
+    if(d.error){out.innerHTML=`<span class="ce">✗ ${esc(d.error)}</span>`;return;}
+    let h=`<span class="cs">✓ Recon: ${esc(d.target)}</span>\n\n`;
+    Object.entries(d.results||{}).forEach(([k,v])=>{h+=`<span class="cl">${esc(k).toUpperCase()}:</span>\n${esc(v)||'<span class="cd">sin datos</span>'}\n\n`;});
     out.innerHTML=h;
-  }catch(e){out.innerHTML=`<span class="ce">✗ ${e.message}</span>`;}
+  }catch(e){out.innerHTML=`<span class="ce">✗ ${esc(e.message)}</span>`;}
 }
 async function runMemory(){
   const out=document.getElementById('memory-out');
   const q=document.getElementById('mq').value.trim(),k=parseInt(document.getElementById('mk').value)||5;
   if(!q){out.innerHTML='<span class="ce">✗ Consulta requerida.</span>';return;}
-  out.innerHTML=`<span class="spin"></span><span class="cd">Buscando: ${q}...</span>`;
+  out.innerHTML=`<span class="spin"></span><span class="cd">Buscando: ${esc(q)}...</span>`;
   try{
     const r=await fetch('/api/memory/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q,k})});
     const d=await r.json();
-    if(d.error){out.innerHTML=`<span class="ce">✗ ${d.error}</span>`;return;}
+    if(d.error){out.innerHTML=`<span class="ce">✗ ${esc(d.error)}</span>`;return;}
     const res=d.results||[];
     if(!res.length){out.innerHTML='<span class="cw">Sin resultados. Usa pentia ingest-intel para cargar datos.</span>';return;}
     let h=`<span class="cs">✓ ${res.length} resultado(s)</span>\n\n`;
-    res.forEach((r,i)=>{h+=`<span class="cl">[ ${i+1} ]</span> <span class="cd">${JSON.stringify(r.metadata||{})}</span>\n${r.text}\n\n`;});
+    res.forEach((r,i)=>{h+=`<span class="cl">[ ${i+1} ]</span> <span class="cd">${esc(JSON.stringify(r.metadata||{}))}</span>\n${esc(r.text)}\n\n`;});
     out.innerHTML=h;
-  }catch(e){out.innerHTML=`<span class="ce">✗ ${e.message}</span>`;}
+  }catch(e){out.innerHTML=`<span class="ce">✗ ${esc(e.message)}</span>`;}
 }
 async function ping(){
   try{const r=await fetch('/health');const d=await r.json();alert('✓ API online\nVersion: '+d.version);}

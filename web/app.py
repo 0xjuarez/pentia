@@ -1,5 +1,12 @@
 """Pentia v4 — Web UI (FastAPI)
-Manejo robusto de errores y validación de entrada
+Manejo robusto de errores y validación de entrada.
+
+Security model (by design, no auth): the UI binds to 127.0.0.1:8000 and
+this app additionally rejects any request whose client is not loopback
+(see the localhost-only middleware below). CORS is limited to the local
+UI origins with credentials disabled. Targets and model names are
+validated before any scan or LLM call, and 500 responses never leak
+exception details to the client (they are only logged server-side).
 """
 from __future__ import annotations
 import sys
@@ -10,13 +17,18 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import HTMLResponse, JSONResponse
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from starlette.middleware.cors import CORSMiddleware
+
+from core.validation import validate_model_name, validate_target
 
 # Configurar logging
 logger = logging.getLogger("pentia.web")
 logger.setLevel(logging.INFO)
+
+VERSION = "4.0.1"
 
 
 class ChatRequest(BaseModel):
@@ -24,11 +36,18 @@ class ChatRequest(BaseModel):
     model: str = Field(default="qwen2.5-coder", min_length=1, max_length=100)
     memory_enabled: bool = True
 
-    @validator('message')
+    @field_validator('message')
+    @classmethod
     def message_not_empty(cls, v):
         if not v.strip():
             raise ValueError('El mensaje no puede estar vacío')
         return v.strip()
+
+    @field_validator('model')
+    @classmethod
+    def model_must_be_valid(cls, v):
+        # Model names reach `ollama run` as an argument; allowlist only.
+        return validate_model_name(v)
 
 
 class CVERequest(BaseModel):
@@ -36,29 +55,28 @@ class CVERequest(BaseModel):
     service: str = Field(..., min_length=1, max_length=100)
     version: Optional[str] = Field(None, max_length=50)
 
-    @validator('target')
-    def target_not_empty(cls, v):
-        if not v.strip():
-            raise ValueError('El target no puede estar vacío')
-        return v.strip()
+    @field_validator('target')
+    @classmethod
+    def target_must_be_valid(cls, v):
+        return validate_target(v.strip())
 
 
 class ReconRequest(BaseModel):
     target: str = Field(..., min_length=1, max_length=255)
     fast: bool = False
 
-    @validator('target')
-    def target_not_empty(cls, v):
-        if not v.strip():
-            raise ValueError('El target no puede estar vacío')
-        return v.strip()
+    @field_validator('target')
+    @classmethod
+    def target_must_be_valid(cls, v):
+        return validate_target(v.strip())
 
 
 class MemoryRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=1000)
     k: int = Field(default=5, ge=1, le=50)
 
-    @validator('query')
+    @field_validator('query')
+    @classmethod
     def query_not_empty(cls, v):
         if not v.strip():
             raise ValueError('La consulta no puede estar vacía')
@@ -68,21 +86,57 @@ class MemoryRequest(BaseModel):
 def create_app() -> FastAPI:
     app = FastAPI(
         title="Pentia v4",
-        version="4.0.0",
+        version=VERSION,
         docs_url="/api/docs",
         description="Red Team AI Platform"
     )
 
-    # Agregar CORS para desarrollo
+    # CORS limitado a la UI local; sin credenciales.
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["localhost", "127.0.0.1", "0.0.0.0"],
-        allow_credentials=True,
+        allow_origins=["http://127.0.0.1:8000", "http://localhost:8000"],
+        allow_credentials=False,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
+    # La UI es localhost-only por diseño (sin auth): rechazar cualquier
+    # cliente que no sea loopback, aunque el puerto quedara expuesto.
+    @app.middleware("http")
+    async def localhost_only(request: Request, call_next):
+        client_host = request.client.host if request.client else ""
+        if client_host not in ("127.0.0.1", "::1", "localhost"):
+            logger.warning(f"Blocked non-localhost request from {client_host} to {request.url.path}")
+            return JSONResponse(
+                status_code=403,
+                content={"error": "Forbidden: this UI is localhost-only"},
+            )
+        return await call_next(request)
+
+    # Cabeceras de seguridad en todas las respuestas. Nota: ui.html es una
+    # app de un solo archivo con <script> inline, handlers onclick y un
+    # bloque <style>, por lo que script-src y style-src necesitan
+    # 'unsafe-inline' hasta que el JS/CSS se externalice; aun así, la CSP
+    # bloquea otros orígenes y el framing/MIME-sniffing quedan cubiertos.
+    @app.middleware("http")
+    async def security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'"
+        )
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
+
     # ── Manejo de errores global ──────────────────────────────────────────
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error_handler(request: Request, exc: RequestValidationError):
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Entrada inválida", "detail": str(exc)}
+        )
 
     @app.exception_handler(ValueError)
     async def value_error_handler(request: Request, exc: ValueError):
@@ -93,10 +147,11 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(RuntimeError)
     async def runtime_error_handler(request: Request, exc: RuntimeError):
+        # Never leak exception details in 500 responses; log them instead.
         logger.error(f"RuntimeError: {exc}")
         return JSONResponse(
             status_code=500,
-            content={"error": "Error interno del servidor", "detail": str(exc)}
+            content={"error": "Internal error"}
         )
 
     # ── Rutas ─────────────────────────────────────────────────────────────
@@ -118,7 +173,7 @@ def create_app() -> FastAPI:
         except Exception as e:
             logger.error(f"Error sirviendo índice: {e}")
             return HTMLResponse(
-                f"<h1>❌ Error al cargar la UI</h1><pre>{str(e)}</pre>",
+                "<h1>❌ Error al cargar la UI</h1>",
                 status_code=500
             )
 
@@ -127,7 +182,7 @@ def create_app() -> FastAPI:
         """Health check para balanceadores"""
         return {
             "status": "ok",
-            "version": "4.0.0",
+            "version": VERSION,
             "modules": {
                 "ai": _check_module_available("core.ai"),
                 "memory": _check_module_available("core.memory"),
@@ -155,7 +210,7 @@ def create_app() -> FastAPI:
             logger.error(f"Error inicializando LLMClient: {e}")
             return JSONResponse(
                 status_code=500,
-                content={"error": "Error interno del servidor"}
+                content={"error": "Internal error"}
             )
 
         context = None
@@ -208,10 +263,7 @@ def create_app() -> FastAPI:
             logger.error(f"Error en enriquecimiento CVE: {e}")
             return JSONResponse(
                 status_code=500,
-                content={
-                    "error": "Error enriqueciendo CVE",
-                    "detail": str(e)
-                }
+                content={"error": "Internal error"}
             )
 
     @app.post("/api/recon")
@@ -235,13 +287,13 @@ def create_app() -> FastAPI:
             logger.error(f"Módulo faltante: {e}")
             return JSONResponse(
                 status_code=503,
-                content={"error": f"Módulo no disponible: {e}"}
+                content={"error": "Módulo no disponible"}
             )
         except Exception as e:
             logger.error(f"Error en recon: {e}")
             return JSONResponse(
                 status_code=500,
-                content={"error": f"Error ejecutando recon: {str(e)[:200]}"}
+                content={"error": "Internal error"}
             )
 
     @app.post("/api/memory/search")
@@ -258,11 +310,18 @@ def create_app() -> FastAPI:
                 status_code=503,
                 content={"error": "Memoria no disponible (Chromadb no instalado)"}
             )
+        except RuntimeError as e:
+            # MemoryStore raises a clear error when chromadb is absent.
+            logger.warning(f"Memoria no disponible: {e}")
+            return JSONResponse(
+                status_code=503,
+                content={"error": "Memoria no disponible (Chromadb no instalado)"}
+            )
         except Exception as e:
             logger.error(f"Error en búsqueda de memoria: {e}")
             return JSONResponse(
                 status_code=500,
-                content={"error": f"Error en búsqueda: {str(e)[:200]}"}
+                content={"error": "Internal error"}
             )
 
     return app
