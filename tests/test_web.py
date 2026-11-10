@@ -31,7 +31,7 @@ def test_health_endpoint():
     assert resp.status_code == 200
     data = resp.json()
     assert data["status"] == "ok"
-    assert data["version"] == "4.0.2"
+    assert data["version"] == "4.0.3"
 
 
 def test_security_headers_present():
