@@ -1,7 +1,13 @@
 import asyncio
+import sys
+from pathlib import Path
 from typing import Any, Dict
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from core.validation import validate_target
 from scanners import web_enum, whatweb
+from scanners._common import run_tool
 
 
 async def run_web_pipeline(target: str) -> Dict[str, Any]:
@@ -19,14 +25,5 @@ async def run_web_pipeline(target: str) -> Dict[str, Any]:
 
 
 async def run_wpscan(target: str) -> Dict[str, Any]:
-    process = await asyncio.create_subprocess_exec(
-        "wpscan", "--url", target, "--no-banner",
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-    )
-    stdout, stderr = await process.communicate()
-    return {
-        "returncode": process.returncode,
-        "output": stdout.decode(errors="ignore"),
-        "error": stderr.decode(errors="ignore"),
-    }
+    target = validate_target(target)
+    return await run_tool("wpscan", ["--url", target, "--no-banner"])
