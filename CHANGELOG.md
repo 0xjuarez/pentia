@@ -2,6 +2,59 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 
+## [4.0.2] - 2026-11-10 — Documentación, instalador multi-distro y modelo ligero
+
+Sin cambios de funcionalidad de escaneo: esta versión es
+documentación, instalador y ajustes para equipos comunes.
+
+### Documentación
+- README reescrito por completo en español, sin emojis ni lenguaje
+  de marketing: qué es PENTIA, alcance honesto (proyecto personal,
+  uso autorizado únicamente), requisitos reales de la instalación
+  base (Python 3.11+, 2 GB RAM, 2 núcleos, 500 MB de disco), costo
+  real de la instalación pesada opcional, comandos verificados contra
+  `pentia --help` y advertencia de que la Web UI no tiene
+  autenticación por diseño (solo localhost).
+- `SECURITY.md`: canal concreto para reportar vulnerabilidades —
+  correo jesjuarez590@gmail.com con asunto "Vulnerabilidad en
+  PENTIA", incluyendo versión afectada, pasos para reproducir e
+  impacto; sin publicar la vulnerabilidad, PoC ni detalles de
+  explotación antes de que haya una corrección.
+
+### Instalador
+- `install.sh` detecta la distribución desde `/etc/os-release`
+  (Debian/Ubuntu, Fedora/RHEL, Arch, openSUSE, Alpine, macOS con
+  Homebrew) y usa su gestor de paquetes. Corrige el consejo
+  erróneo "Debian/Ubuntu/Fedora: sudo apt install python3-pip"
+  (Fedora usa dnf, no apt).
+- Detección fail-fast de `python3-venv` (Debian/Ubuntu lo separan
+  en otro paquete): si falta, el instalador se detiene con el
+  comando exacto para instalarlo en lugar de fallar a mitad de la
+  creación del entorno virtual.
+- Instalación opcional de herramientas del sistema detrás de
+  `INSTALL_TOOLS=1` (nmap, ffuf, sqlmap, whatweb y, según la
+  distro, otras): pregunta antes de usar sudo y nunca lo usa sin
+  confirmación. nuclei, subfinder, rustscan y wpscan no están en la
+  mayoría de los repositorios y se documentan con sus comandos de
+  instalación manual en el README.
+- La instalación pesada (`INSTALL_HEAVY=1`) instala los paquetes
+  ML uno por uno: si uno falla, avisa y sigue con el resto en lugar
+  de abortar todo.
+
+### Modelo por defecto
+- El modelo de lenguaje por defecto pasa de `qwen2.5-coder` (7B,
+  ~4.7 GB) a `qwen2.5-coder:1.5b` (~1 GB) en `core/ai.py`,
+  `pentia chat --model`, la API web (`/api/chat`), `.env.example`,
+  `install.sh` y la documentación, para que corra en equipos
+  comunes. `OLLAMA_MODEL` sigue permitiendo elegir otro modelo y
+  los fallbacks siguen siendo modelos pequeños primero.
+
+### CI
+- `.github/workflows/python-tests.yml`: grupo de concurrencia por
+  workflow y rama con `cancel-in-progress: true`, para que un push
+  con varios commits cancele las ejecuciones intermedias en lugar
+  de producir fallos y correos por estados transitorios.
+
 ## [4.0.1] - 2026-11-10 — Revisión de seguridad y hardening
 
 Auditoría completa (seguridad, web UI, dependencias, CLI/lógica) y

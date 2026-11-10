@@ -1,4 +1,4 @@
-# Pentia v4 — Red Team AI Platform
+# Pentia v4
 
 ```
 ██████╗  ███████╗███╗   ██╗████████╗██╗  █████╗
@@ -6,50 +6,69 @@
 ██████╔╝█████╗  ██╔██╗ ██║   ██║   ██║ ███████║
 ██╔═══╝ ██╔══╝  ██║╚██╗██║   ██║   ██║ ██╔══██║
 ██║     ███████╗██║ ╚████║   ██║   ██║ ██║  ██║
-╚═╝     ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝ ╚═╝  ╚═╝
+╚═╝     ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝ ╚═╝ ╚═╝
 v4 · Red Team AI Platform
 ```
 
-## ⚠️ Información Importante
+PENTIA es una herramienta de línea de comandos con interfaz web para
+pruebas de seguridad autorizadas: reconocimiento, enumeración web e
+interna, análisis de malware, enriquecimiento de CVE y chat local con
+un modelo de lenguaje a través de Ollama. Está pensada para usarse
+contra sistemas propios o con autorización explícita por escrito.
 
-> **Este es un proyecto personal en desarrollo activo.** No está optimizado para uso en producción ni uso diario.
->
-> - 🔧 **Estado**: Versión experimental. Espera bugs y comportamientos inesperados
-> - 🚀 **Desarrollo**: El proyecto continúa evolucionando. Nuevas features y fixes se agregan regularmente
-> - 📦 **Recursos**: Requiere recursos significativos para óptimo rendimiento
-> - ✏️ **Personalización**: Siéntete libre de modificar el código según tus necesidades
->
-> **No esperes que funcione perfectamente a la primera.** Si encuentras issues, por favor reportalos.
+**4.0.2 (2026-11-10).** Esta versión reescribe el README sin adornos,
+añade un canal concreto para reportar vulnerabilidades (ver
+[SECURITY.md](SECURITY.md)), adapta el instalador a varias
+distribuciones, cambia el modelo de lenguaje por defecto a uno ligero
+(`qwen2.5-coder:1.5b`) y evita que los despliegues con varios commits
+disparen ejecuciones de CI obsoletas. Detalle completo en
+[CHANGELOG.md](CHANGELOG.md).
 
-> **4.0.1 (2026-11-10) — Revisión de seguridad y hardening.** Esta versión
-> corrige lo encontrado en una auditoría completa: validación de targets
-> (nada que empiece con `-` o con metacaracteres llega a los scanners),
-> timeouts y verificación de binarios en todos los scanners, CORS y
-> localhost-only en la Web UI (sin auth por diseño), XSS escapado en la UI
-> y en los reportes, parseo NVD 2.0 (antes devolvía todo `None`),
-> dependencias con rangos acotados y suite de tests (`pytest tests/`).
-> Detalle completo en [CHANGELOG.md](CHANGELOG.md) y [SECURITY.md](SECURITY.md).
-> La Web UI sigue sin autenticación: úsala solo en `127.0.0.1`.
+**4.0.1 (2026-11-10).** Revisión de seguridad y hardening: validación
+de targets, timeouts y verificación de binarios en los scanners, CORS
+y localhost-only en la Web UI, XSS escapado en la UI y en los
+reportes, parseo NVD 2.0 y suite de tests (`pytest tests/`).
 
-### Requisitos Mínimos Recomendados
+## Alcance
 
-Para un rendimiento aceptable, tu sistema debe tener:
+PENTIA es un proyecto personal en desarrollo activo, no un producto
+terminado. Espera errores y comportamiento incompleto en algunas
+partes. Úsalo solo contra sistemas que te pertenecen o que tienes
+autorización explícita para probar. No lo uses contra sistemas de
+terceros ni para acceder, interrumpir o extraer datos sin permiso.
 
-| Recurso | Mínimo | Recomendado |
-|---------|--------|-------------|
-| **RAM** | 8 GB | 16 GB+ |
-| **CPU** | 4 cores | 8+ cores (con paralelización) |
-| **Almacenamiento** | 20 GB | 100 GB+ (para inteligencia, modelos) |
-| **Python** | 3.11 | 3.12+ |
+La interfaz web (`pentia serve`) **no tiene autenticación por
+diseño**: escucha solo en `127.0.0.1` y rechaza cualquier cliente que
+no sea local. No la expongas en red local ni en internet. Lee
+[SECURITY.md](SECURITY.md) antes de usarla.
 
-Si planeas usar **características ML/AI completas** (clasificación, RAG, embeddings), necesitarás especialmente:
-- **32 GB+ RAM** (para modelos grandes)
-- **SSD rápido** (para bases de datos vectoriales)
-- **GPU opcional** (acelera significativamente ML)
+## Requisitos
 
----
+Instalación base (ligera, sin modelos pesados):
 
-## 🚀 Instalación Rápida
+| Recurso | Requisito |
+|---------|-----------|
+| Python | 3.11 o superior |
+| RAM | 2 GB |
+| CPU | 2 núcleos |
+| Disco | 500 MB libres |
+
+La instalación base no incluye los módulos de aprendizaje automático
+ni memoria semántica (RAG). Esos son opcionales (`INSTALL_HEAVY=1`):
+descargan varios cientos de MB en paquetes (ChromaDB,
+sentence-transformers, XGBoost, LightGBM, scikit-learn, networkx,
+pefile) más el modelo de embeddings, y necesitan compiladores C++
+(`build-essential` o equivalente) porque algunos paquetes se compilan
+al instalarse. En equipos modestos la instalación pesada tarda
+bastante; si solo vas a hacer recon y enriquecimiento de CVE, no la
+necesitas.
+
+Las herramientas externas de escaneo (nmap, nuclei, ffuf, subfinder,
+whatweb, sqlmap, rustscan, wpscan) no se instalan con la instalación
+base. PENTIA avisa cuáles faltan y sigue funcionando con las que hay.
+Para instalarlas, usa `INSTALL_TOOLS=1 ./install.sh` (ver abajo).
+
+## Instalación
 
 ### 1. Clonar el repositorio
 
@@ -59,103 +78,124 @@ cd pentia
 chmod +x install.sh
 ```
 
-### 2. Instalar (instalación base)
+### 2. Instalar (base)
 
 ```bash
 ./install.sh
 ```
 
-Esto instalará:
-- ✓ Entorno virtual Python 3.11+
-- ✓ Dependencias CLI (Typer, Rich, FastAPI)
-- ✓ Herramientas de recon básicas
+El instalador crea el entorno virtual `.venv`, instala las
+dependencias base desde `requirements.txt` y deja el comando `pentia`
+disponible en `~/.local/bin`. Detecta la distribución desde
+`/etc/os-release` (Debian/Ubuntu, Fedora/RHEL, Arch, openSUSE, Alpine
+y macOS con Homebrew) para darte los comandos correctos si falta
+`pip` o `python3-venv`. No descarga ni ejecuta instaladores remotos.
 
-### 3. Instalar con ML/AI completo (opcional)
+### 3. Herramientas de escaneo del sistema (opcional)
+
+```bash
+INSTALL_TOOLS=1 ./install.sh
+```
+
+Instala con el gestor de paquetes de tu distribución las
+herramientas que estén en sus repositorios (nmap, ffuf, sqlmap,
+whatweb y, según la distro, otras). Antes de usar `sudo` te pregunta
+y solo continúa si confirmas. nuclei, subfinder, rustscan y wpscan no
+están en la mayoría de los repositorios; instálalos a mano:
+
+```bash
+go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
+go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest
+cargo install rustscan
+gem install wpscan
+```
+
+### 4. Funciones de ML y memoria (opcional)
 
 ```bash
 INSTALL_HEAVY=1 ./install.sh
 ```
 
-Agrega:
-- ChromaDB (para RAG/Memoria)
-- Transformers (embeddings)
-- XGBoost, LightGBM (clasificación)
-- FAISS (búsqueda vectorial)
+Instala los paquetes de aprendizaje automático uno por uno: si uno
+falla, avisa y sigue con el resto en lugar de abortar todo.
 
-**Nota**: Esto tarda más y requiere compiladores C++ disponibles.
-
-### 4. (Requerido para chat) Instalar Ollama
-
-Para usar el chat AI integrado:
+### 5. Chat local con Ollama (opcional, solo para `pentia chat`)
 
 ```bash
-# Descargar desde https://ollama.com/download
-ollama pull qwen2.5-coder  # o tu modelo favorito
+# Instala Ollama desde https://ollama.com/download y luego:
+ollama pull qwen2.5-coder:1.5b
 ```
 
-### 5. Verificar instalación
+El modelo por defecto es `qwen2.5-coder:1.5b` (alrededor de 1 GB),
+elegido para que corra en equipos comunes. Puedes usar otro modelo
+con `OLLAMA_MODEL` o con `pentia chat --model <nombre>`.
+
+### 6. Verificar la instalación
 
 ```bash
 pentia version
 pentia --help
 ```
 
-Si `pentia: command not found`, reinicia tu shell:
+Si aparece `pentia: command not found`, recarga tu shell:
+
 ```bash
 source ~/.bashrc  # o source ~/.zshrc
 ```
 
----
+## Uso
 
-## 📋 Uso Rápido
-
-### Interfaz Web (Recomendada)
+### Interfaz web
 
 ```bash
 pentia serve
 # Abre http://127.0.0.1:8000
 ```
 
-### Terminal Interactiva
+Opciones: `--host` (por defecto `127.0.0.1`) y `--port` (por
+defecto `8000`). Mantén el host en `127.0.0.1`: la interfaz no tiene
+login y cualquiera que la alcance puede lanzar escaneos y usar el
+modelo local.
+
+### Menú principal
 
 ```bash
 pentia                    # Menú principal
 pentia --help             # Todos los comandos
-pentia version            # Info del sistema
+pentia version            # Información de versión
 ```
 
-### Comandos Principales
+### Comandos
 
 ```bash
-# ── Recon y Scanning ──
-pentia recon example.com           # Pipeline completo
+# Recon y escaneo
+pentia recon example.com           # Pipeline completo: nmap, nuclei, subfinder, ffuf, CVE
 pentia recon example.com -f        # Modo rápido (sin ffuf)
-pentia web example.com             # Web enumeration
-pentia internal 192.168.1.0/24     # Scanning interno
+pentia recon example.com -o reports
+pentia web example.com             # Enumeración web: whatweb, ffuf
+pentia internal 192.168.1.0/24     # Red interna: enum4linux, Bloodhound
 
-# ── Inteligencia CVE ──
-pentia cve scanme.nmap.org Apache 2.4.49     # Enriquecimiento
-pentia intel "apache path traversal"          # Búsqueda
-pentia intel-download --kev                   # Descargar KEV
-pentia ingest-intel datasets/cves/nvdcve.json # Ingerir datos
+# Inteligencia de CVE
+pentia cve scanme.nmap.org Apache 2.4.49   # Enriquecimiento: CPE, NVD, KEV, ExploitDB, nuclei
+pentia intel "apache path traversal"       # Búsqueda en inteligencia local
+pentia intel-download --kev                # Descargar feeds CISA KEV y/o NVD
+pentia ingest-intel datasets/cves/nvdcve.json   # Ingerir un archivo NVD JSON o ExploitDB CSV
 
-# ── AI Chat ──
-pentia chat                    # Chat interactivo
-pentia chat --model llama3.1   # Otro modelo Ollama
+# Memoria y chat
+pentia memory "apache exploit"     # Búsqueda en memoria semántica (ChromaDB local)
+pentia chat                        # Chat interactivo (requiere Ollama)
+pentia chat --model llama3.1       # Otro modelo Ollama
 
-# ── Memoria & RAG ──
-pentia memory "apache exploit" # Búsqueda en memoria
-
-# ── Malware ──
-pentia malware /path/sample.exe  # Análisis
-
-# ── Reportes ──
-pentia report "findings" -o ./reports/
+# Malware y reportes
+pentia malware /ruta/muestra.exe   # Análisis: features PE, entropía, clasificación
+pentia report "hallazgos" -o reports   # Reporte en Markdown y JSON
 ```
 
----
+Los reportes se guardan en el directorio de trabajo actual. Los
+nombres de archivo derivados del target se sanean para evitar
+escrituras fuera del directorio de salida.
 
-## 📸 Capturas de Pantalla
+## Capturas de pantalla
 
 ### Web UI
 ![Web Interface 1](assets/Captura%20desde%202026-05-23%2019-12-09.png)
@@ -173,74 +213,56 @@ pentia report "findings" -o ./reports/
 ![Web Interface 5](assets/Captura%20desde%202026-05-23%2019-51-40.png)
 *Chat AI integrado*
 
----
-
-## 🏗️ Arquitectura
+## Estructura
 
 ```
 pentia/
 ├── pentia.py              # CLI principal (Typer + Rich)
-├── install.sh             # Instalador inteligente
-├── requirements.txt        # Dependencias
+├── install.sh             # Instalador
+├── requirements.txt        # Dependencias base
 ├── pyproject.toml          # Configuración Python
 │
 ├── web/
 │   ├── app.py             # Backend FastAPI
-│   └── ui.html            # Frontend completo
+│   └── ui.html            # Frontend
 │
 ├── core/                   # Motor principal
 │   ├── ai.py              # Cliente LLM (Ollama)
-│   ├── memory.py          # RAG & ChromaDB
+│   ├── memory.py          # RAG y ChromaDB
 │   ├── intel.py           # Enriquecimiento CVE
 │   ├── orchestrator.py    # Orquestación de pipelines
-│   ├── scoring.py         # Scoring automático
+│   ├── scoring.py         # Scoring de findings
 │   ├── cve_engine.py      # Motor CVE
 │   ├── knowledge_graph.py  # Grafo de conocimiento
+│   ├── validation.py      # Validación de targets y modelos
 │   └── ... (otros módulos)
 │
-├── neural/                 # Machine Learning
-│   ├── classifier.py      # Clasificador malware
+├── neural/                 # Aprendizaje automático (opcional)
+│   ├── classifier.py      # Clasificador de malware
 │   ├── exploit_ranker.py  # Ranking de exploits
 │   ├── ioc_cluster.py     # Clustering de IOCs
 │   ├── rag.py             # RAG avanzado
 │   └── vectorstore.py     # Gestión de embeddings
 │
-├── pipelines/             # Pipelines de ataque
-│   ├── recon.py           # Reconocimiento
-│   ├── web.py             # Web testing
-│   ├── internal.py        # Red interna
-│   └── malware.py         # Análisis malware
-│
-├── scanners/              # Integraciones
-│   ├── nmap.py, nuclei.py, whatweb.py
-│   ├── subdomains.py, web_enum.py
-│   └── ... (más herramientas)
-│
-├── plugins/               # Sistema modular
-│   ├── base.py            # Plugin base
-│   ├── ffuf.py, sqlmap.py, rustscan.py
-│   └── custom/            # Tus propios plugins
-│
-├── reports/               # Generación
-│   └── generator.py       # Markdown + JSON
-│
-└── scripts/
-    └── download_intel.py  # Descarga de inteligencia
+├── pipelines/             # Pipelines de recon, web, internal, malware
+├── scanners/              # Integraciones con binarios externos
+├── plugins/               # Sistema modular (ffuf, sqlmap, rustscan)
+├── reports/               # Generación de reportes (Markdown, JSON, HTML)
+├── scripts/               # Descarga de inteligencia (KEV, NVD)
+└── tests/                 # Suite de tests (pytest)
 ```
 
----
+## Configuración
 
-## ⚙️ Configuración
-
-### Variables de Entorno
+Variables de entorno (ver `.env.example`, copia a `.env`):
 
 ```bash
-# Modelos
-OLLAMA_MODEL="qwen2.5-coder"  # Modelo por defecto
+# Modelo de lenguaje (Ollama)
+OLLAMA_MODEL="qwen2.5-coder:1.5b"  # Modelo por defecto
 OLLAMA_HOST="http://localhost:11434"
 
-# Scanning
-NUCLEI_TEMPLATES="/path/to/templates"
+# Escaneo
+NUCLEI_TEMPLATES="/usr/share/nuclei-templates"
 SHODAN_API_KEY="your-key"
 
 # Web
@@ -248,29 +270,22 @@ WEB_PORT=8000
 WEB_HOST=127.0.0.1
 ```
 
-### Activar manualmente el entorno
+Para activar el entorno virtual manualmente:
 
 ```bash
 source .venv/bin/activate
-# o
-. .venv/bin/activate
-
 # Desactivar
 deactivate
 ```
 
----
+## Desarrollar y contribuir
 
-## 🔧 Desarrollar & Contribuir
+Este es un proyecto personal, pero las contribuciones son
+bienvenidas. Antes de enviar cambios, corre la suite de tests:
 
-Este es un proyecto personal, pero **todas las contribuciones son bienvenidas**.
-
-### Estructura de código
-
-- **Modular**: Cada scanner/pipeline es independiente
-- **Async-first**: Usa `asyncio` para paralelización
-- **Tipado**: Type hints en todo el código
-- **Errores manejados**: Recuperación automática de fallos
+```bash
+pytest tests/ -q
+```
 
 ### Agregar un scanner personalizado
 
@@ -281,15 +296,13 @@ from plugins.base import ScannerBase
 class MiScanner(ScannerBase):
     def __init__(self):
         super().__init__(name="mi_scanner", version="1.0")
-    
+
     async def scan(self, target: str):
         # Tu lógica aquí
         return results
 ```
 
----
-
-## 🐛 Troubleshooting
+## Solución de problemas
 
 ### "pentia: command not found"
 
@@ -322,16 +335,18 @@ ollama serve  # En otra terminal
 # Verifica el modelo
 ollama list
 
-# Descarga si falta
-ollama pull qwen2.5-coder
+# Descarga el modelo por defecto si falta
+ollama pull qwen2.5-coder:1.5b
 ```
 
-### Errores de dependencias ML/AI
+### Errores de dependencias ML
 
 ```bash
-# Si falla INSTALL_HEAVY=1, instala compiladores
-# Ubuntu/Debian:
+# Instala compiladores (Debian/Ubuntu):
 sudo apt-get install build-essential python3-dev
+
+# Fedora/RHEL:
+sudo dnf install gcc gcc-c++ python3-devel
 
 # macOS:
 xcode-select --install
@@ -340,22 +355,23 @@ xcode-select --install
 INSTALL_HEAVY=1 ./install.sh
 ```
 
----
+Más casos en [TROUBLESHOOTING.md](TROUBLESHOOTING.md) y
+[DEVELOPMENT.md](DEVELOPMENT.md).
 
-## 📄 Licencia
+## Licencia
 
-Este es un proyecto personal sin licencia específica.  
-**Siéntete libre de modificar, adaptar y redistributir según tus necesidades.**
+Este es un proyecto personal sin licencia específica.
+Siéntete libre de modificar, adaptar y redistribuir según tus
+necesidades.
 
----
-
-## 🤝 Soporte
+## Soporte
 
 - **Bugs**: Abre un issue con detalles de reproducción
-- **Features**: Sugiere en issues
+- **Vulnerabilidades**: No las publiques; repórtalas por correo
+  según [SECURITY.md](SECURITY.md)
 - **Preguntas**: Revisa la documentación primero
 
 ---
 
-**Última actualización**: Mayo 2026  
-**Versión**: 4.0.1 (En desarrollo)
+**Última actualización**: 10 de noviembre de 2026
+**Versión**: 4.0.2

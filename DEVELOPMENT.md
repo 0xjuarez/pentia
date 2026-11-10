@@ -244,7 +244,7 @@ pentia serve
 # Terminal 2
 curl -X POST http://127.0.0.1:8000/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Hola", "model": "qwen2.5-coder"}'
+  -d '{"message": "Hola", "model": "qwen2.5-coder:1.5b"}'
 ```
 
 ## Performance & Optimización

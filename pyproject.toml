@@ -1,6 +1,6 @@
 [project]
 name = "pentia"
-version = "4.0.1"
+version = "4.0.2"
 description = "Pentia v4 — Red Team AI Platform by DevSecurityMX"
 readme = "README.md"
 requires-python = ">=3.11"

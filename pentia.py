@@ -444,7 +444,7 @@ def report(
 
 @app.command()
 def chat(
-    model: str = typer.Option("qwen2.5-coder", "--model", "-m"),
+    model: str = typer.Option("qwen2.5-coder:1.5b", "--model", "-m"),
     memory_enabled: bool = typer.Option(True, "--memory/--no-memory"),
 ):
     """[bold]Sesión AI interactiva[/] en terminal (requiere Ollama)."""
@@ -550,7 +550,7 @@ def serve(
 def version():
     """Información de versión."""
     show_banner()
-    console.print(f"\n  [bold]Versión:[/]   [green]4.0.1[/]")
+    console.print(f"\n  [bold]Versión:[/]   [green]4.0.2[/]")
     console.print(f"  [bold]Python:[/]    [cyan]{sys.version.split()[0]}[/]")
     console.print(f"  [bold]Platform:[/]  [cyan]{sys.platform}[/]")
     console.print(f"  [bold]Estado:[/]    [yellow]En desarrollo[/]")

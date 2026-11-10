@@ -9,10 +9,17 @@ or exfiltrate data you are not authorized to handle.
 
 ## Reporting vulnerabilities
 
-If you find a security vulnerability in Pentia itself, please report it
-responsibly: open a private issue or contact the maintainers through the
-project's published contact channels. Do not publish the vulnerability,
-a proof of concept, or exploit details before a fix is available.
+If you find a security vulnerability in Pentia itself, please report
+it by email to **jesjuarez590@gmail.com** with the subject
+**"Vulnerabilidad en PENTIA"**. Include in the report:
+
+- The affected Pentia version (see `pentia version`).
+- Steps to reproduce the vulnerability.
+- The impact (what an attacker could do with it).
+
+Do not publish the vulnerability, a proof of concept, or exploit
+details before a fix is available. Reports are handled privately and
+the reporter will be credited if they wish.
 
 ## No unauthenticated remote use
 

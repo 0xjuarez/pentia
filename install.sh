@@ -33,6 +33,45 @@ line() { printf "  ${DIM}──────────────────�
 
 OLLAMA_OK=false
 
+# Distribución detectada desde /etc/os-release (o Darwin para macOS).
+# Se usa para dar instrucciones correctas por gestor de paquetes.
+DISTRO="unknown"
+PKG_MGR=""
+
+detect_distro() {
+  if [ "$(uname -s)" = "Darwin" ]; then
+    DISTRO="macos"
+    PKG_MGR="brew"
+    return
+  fi
+  if [ -f /etc/os-release ]; then
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    case "${ID:-} ${ID_LIKE:-}" in
+      *debian*|*ubuntu*) DISTRO="debian"; PKG_MGR="apt" ;;
+      *fedora*|*rhel*|*centos*|*rocky*|*alma*) DISTRO="fedora"; PKG_MGR="dnf" ;;
+      *arch*|*manjaro*) DISTRO="arch"; PKG_MGR="pacman" ;;
+      *suse*|*opensuse*) DISTRO="suse"; PKG_MGR="zypper" ;;
+      *alpine*) DISTRO="alpine"; PKG_MGR="apk" ;;
+      *) DISTRO="${ID:-unknown}"; PKG_MGR="" ;;
+    esac
+  fi
+  info "Distribución detectada: $DISTRO (gestor: ${PKG_MGR:-ninguno})"
+}
+
+# Comando para instalar pip con el gestor de la distribución.
+pip_install_hint() {
+  case "$DISTRO" in
+    debian) printf "    sudo apt install python3-pip python3-venv\n" ;;
+    fedora) printf "    sudo dnf install python3-pip\n" ;;
+    arch)   printf "    sudo pacman -S python-pip python-virtualenv\n" ;;
+    suse)   printf "    sudo zypper install python3-pip python3-virtualenv\n" ;;
+    alpine) printf "    sudo apk add py3-pip py3-virtualenv\n" ;;
+    macos)  printf "    brew install python\n" ;;
+    *)      printf "    Instala pip con el gestor de paquetes de tu distribución\n" ;;
+  esac
+}
+
 check_python() {
   step "1/6" "Python 3.11+"
   if command -v python3 &>/dev/null; then
@@ -61,12 +100,29 @@ check_pip() {
     # pip con su gestor de paquetes.
     fail "pip no encontrado."
     printf "  Instálalo con tu gestor de paquetes, por ejemplo:\n"
-    printf "    Debian/Ubuntu/Fedora:  sudo apt install python3-pip\n"
-    printf "    Fedora/RHEL:           sudo dnf install python3-pip\n"
-    printf "    macOS (Homebrew):      brew install python\n"
-    printf "    Arch:                  sudo pacman -S python-pip\n"
+    pip_install_hint
     exit 1
   fi
+}
+
+check_venv() {
+  # Debian/Ubuntu separan venv en otro paquete (python3-venv); sin él,
+  # `python3 -m venv` falla a mitad de la instalación. Detectarlo aquí
+  # da un mensaje claro en vez de un error críptico de ensurepip.
+  if ! python3 -c "import venv, ensurepip" 2>/dev/null; then
+    fail "python3-venv no disponible."
+    printf "  Instálalo con:\n"
+    case "$DISTRO" in
+      debian) printf "    sudo apt install python3-venv python3-pip\n" ;;
+      arch)   printf "    sudo pacman -S python-virtualenv\n" ;;
+      suse)   printf "    sudo zypper install python3-virtualenv\n" ;;
+      alpine) printf "    sudo apk add py3-virtualenv\n" ;;
+      macos)  printf "    brew install python\n" ;;
+      *)      printf "    Instala el paquete venv/virtualenv de tu distribución\n" ;;
+    esac
+    exit 1
+  fi
+  ok "python3-venv disponible"
 }
 
 check_ollama() {
@@ -74,11 +130,11 @@ check_ollama() {
   if command -v ollama &>/dev/null; then
     ok "Ollama detectado"
     OLLAMA_OK=true
-    if ollama list 2>/dev/null | grep -q "qwen2.5-coder"; then
-      ok "Modelo qwen2.5-coder disponible"
+    if ollama list 2>/dev/null | grep -q "qwen2.5-coder:1.5b"; then
+      ok "Modelo qwen2.5-coder:1.5b disponible"
     else
-      warn "Modelo qwen2.5-coder no encontrado"
-      info "Descarga con: ${CYN}ollama pull qwen2.5-coder${NC}"
+      warn "Modelo qwen2.5-coder:1.5b no encontrado"
+      info "Descarga con: ${CYN}ollama pull qwen2.5-coder:1.5b${NC}"
     fi
   else
     warn "Ollama no detectado — chat AI no funcionará sin él"
@@ -95,6 +151,58 @@ check_tools() {
       warn "$t no encontrado  ${DIM}(recomendado para recon real)${NC}"
     fi
   done
+  install_system_tools
+}
+
+# Instalación OPCIONAL de herramientas del sistema, solo con
+# INSTALL_TOOLS=1. Pregunta antes de usar sudo y nunca lo usa sin
+# confirmación. Solo instala lo que esté en los repositorios de la
+# distribución; nuclei, subfinder, rustscan y wpscan no están en la
+# mayoría de ellos y se instalan a mano (ver README).
+install_system_tools() {
+  if [ "${INSTALL_TOOLS:-0}" != "1" ]; then
+    info "Herramientas del sistema no instaladas (opcional: INSTALL_TOOLS=1 ./install.sh)"
+    return 0
+  fi
+  local pkgs=""
+  case "$DISTRO" in
+    debian) pkgs="nmap ffuf sqlmap whatweb" ;;
+    fedora) pkgs="nmap ffuf sqlmap whatweb" ;;
+    arch)   pkgs="nmap ffuf sqlmap whatweb" ;;
+    suse)   pkgs="nmap sqlmap" ;;
+    alpine) pkgs="nmap sqlmap" ;;
+    macos)  pkgs="nmap sqlmap ffuf whatweb" ;;
+    *)
+      warn "Distribución no detectada: no sé qué gestor de paquetes usar."
+      info "Instala manualmente: nmap, nuclei, ffuf, subfinder, whatweb, sqlmap, rustscan, wpscan"
+      return 0
+      ;;
+  esac
+  info "INSTALL_TOOLS=1: se instalarían con sudo ($PKG_MGR): $pkgs"
+  info "nuclei, subfinder, rustscan y wpscan no están en estos repositorios; instálalos a mano (ver README)."
+  if [ ! -t 0 ]; then
+    warn "Sin terminal interactiva: no puedo pedir confirmación para sudo."
+    info "Ejecuta ./install.sh en una terminal o instala las herramientas a mano."
+    return 0
+  fi
+  printf "  ¿Instalar con sudo? [s/N] "
+  local answer=""
+  read -r answer || answer=""
+  case "$answer" in
+    s|S|si|sí|y|Y|yes) ;;
+    *)
+      info "Omitido por el usuario."
+      return 0
+      ;;
+  esac
+  case "$PKG_MGR" in
+    apt)    sudo apt-get update && sudo apt-get install -y $pkgs || warn "La instalación de herramientas falló" ;;
+    dnf)    sudo dnf install -y $pkgs || warn "La instalación de herramientas falló" ;;
+    pacman) sudo pacman -S --noconfirm $pkgs || warn "La instalación de herramientas falló" ;;
+    zypper) sudo zypper install -y $pkgs || warn "La instalación de herramientas falló" ;;
+    apk)    sudo apk add $pkgs || warn "La instalación de herramientas falló" ;;
+    brew)   brew install $pkgs || warn "La instalación de herramientas falló" ;;
+  esac
 }
 
 install_python_deps() {
@@ -127,11 +235,22 @@ install_python_deps() {
 
   if [ "${INSTALL_HEAVY:-0}" = "1" ]; then
     info "Instalando dependencias ML/AI (esto puede tardar)..."
-    if python3 -m pip install -q chromadb sentence-transformers xgboost lightgbm scikit-learn networkx pefile; then
-      ok "ML/AI instalado"
+    # Un paquete por vez: si uno falla, se avisa y se sigue con el
+    # resto en lugar de abortar toda la instalación pesada.
+    HEAVY_FAILED=""
+    for pkg in chromadb sentence-transformers xgboost lightgbm scikit-learn networkx pefile; do
+      if python3 -m pip install -q "$pkg"; then
+        ok "$pkg instalado"
+      else
+        warn "$pkg falló — se omite y se sigue con el resto"
+        HEAVY_FAILED="$HEAVY_FAILED $pkg"
+      fi
+    done
+    if [ -n "$HEAVY_FAILED" ]; then
+      warn "ML/AI parcial: fallaron:$HEAVY_FAILED"
+      warn "Las funciones de memoria/RAG que dependen de esos paquetes no estarán disponibles"
     else
-      warn "Algunos paquetes ML/AI fallaron (esto es normal si faltan compiladores)"
-      warn "ML/AI NO instalado — las funciones de memoria/RAG no estarán disponibles"
+      ok "ML/AI instalado"
     fi
   else
     warn "Dependencias ML/AI saltadas"
@@ -201,7 +320,7 @@ print_done() {
   if [ "$OLLAMA_OK" = false ]; then
     printf "\n  ${YLW}⚠ Para el chat AI, instala Ollama:${NC}\n"
     printf "    ${DIM}https://ollama.com/download${NC}\n"
-    printf "    ${DIM}ollama pull qwen2.5-coder${NC}\n"
+    printf "    ${DIM}ollama pull qwen2.5-coder:1.5b${NC}\n"
   fi
 
   printf "\n"
@@ -212,8 +331,10 @@ print_done() {
 
 main() {
   print_banner
+  detect_distro
   check_python
   check_pip
+  check_venv
   check_ollama
   check_tools
   install_python_deps

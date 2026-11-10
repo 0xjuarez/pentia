@@ -145,7 +145,7 @@ ollama --version
 
 1. Descarga el modelo:
 ```bash
-ollama pull qwen2.5-coder
+ollama pull qwen2.5-coder:1.5b
 ```
 
 2. Lista modelos disponibles:
