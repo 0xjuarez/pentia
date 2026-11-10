@@ -17,16 +17,26 @@ class CodeAnalyzer:
         self.model_name = model_name
         self.tokenizer = None
         self.model = None
-        if AutoTokenizer is not None and AutoModelForSequenceClassification is not None:
-            try:
-                self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-                self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
-            except Exception:
-                self.tokenizer = None
-                self.model = None
+        # Lazy load: constructing the model here downloads/loads hundreds
+        # of MB on every import/instantiation. Load on first analyze().
+
+    def _ensure_model(self) -> bool:
+        """Load the CodeBERT model on first use; False if unavailable."""
+        if self.tokenizer is not None and self.model is not None:
+            return True
+        if AutoTokenizer is None or AutoModelForSequenceClassification is None:
+            return False
+        try:
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+            self.model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
+            return True
+        except Exception:
+            self.tokenizer = None
+            self.model = None
+            return False
 
     def analyze(self, code: str) -> Dict[str, Optional[str]]:
-        if self.tokenizer is None or self.model is None:
+        if not self._ensure_model():
             return {"summary": "Code analysis unavailable", "risk": None}
 
         inputs = self.tokenizer(code, return_tensors="pt", truncation=True, max_length=512)

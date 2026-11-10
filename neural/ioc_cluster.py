@@ -24,6 +24,9 @@ class IOCClusterer:
         return vectorizer.fit_transform(items)
 
     def cluster(self, iocs: List[str]) -> Dict[str, Optional[List[int]]]:
+        if not iocs:
+            # KMeans/TfidfVectorizer raise ValueError on an empty list.
+            return {"labels": [], "clusters": {}}
         if self.method == "kmeans" and KMeans is not None:
             matrix = self._vectorize(iocs)
             model = KMeans(n_clusters=min(5, len(iocs)))

@@ -1,6 +1,7 @@
 import asyncio
 import math
 import re
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -24,7 +25,9 @@ except ImportError:  # pragma: no cover
 def entropy(data: bytes) -> float:
     if not data:
         return 0.0
-    freq = {b: data.count(b) for b in set(data)}
+    # Single pass with Counter: the old {b: data.count(b) for b in set(data)}
+    # re-scanned the whole buffer once per unique byte (O(256·n)).
+    freq = Counter(data)
     ent = 0.0
     for count in freq.values():
         p = count / len(data)
@@ -75,7 +78,7 @@ class MalwareClassifier:
             features["imports"] = sum(len(entry.imports) for entry in getattr(pe, "DIRECTORY_ENTRY_IMPORT", []))
             features["entropy_avg"] = sum(getattr(section, "entropy", 0.0) for section in pe.sections) / max(1, len(pe.sections))
             features["has_dotnet"] = any(section.Name.rstrip(b"\x00").decode(errors="ignore").lower().startswith(".net") for section in pe.sections)
-            features["size"] = pe.header.sizeof_optional_header if hasattr(pe, "header") else 0
+            features["size"] = Path(sample_path).stat().st_size
             features["is_packed"] = any(section.Name.rstrip(b"\x00").decode(errors="ignore").lower() in {"upx0", "aspack", "petite", "themida"} for section in pe.sections)
         except Exception:
             features["sections"] = 0
@@ -146,9 +149,16 @@ class MalwareClassifier:
                 float(features.get("string_count", 0)),
                 float(features.get("is_packed", False)),
             ])
-        if lgb is not None and hasattr(self.model, "train"):
+        if lgb is not None and isinstance(self.model, lgb.Booster):
+            # A LightGBM Booster has no .fit (AttributeError): train a new
+            # Booster via the module-level lgb.train and persist it.
             dataset = lgb.Dataset(vectors, label=labels)
             self.model = lgb.train({}, dataset)
             self.model.save_model(self.model_path)
-        elif RandomForestClassifier is not None:
+        elif hasattr(self.model, "fit"):
             self.model.fit(vectors, labels)
+        else:
+            raise RuntimeError(
+                f"Cannot train model of type {type(self.model).__name__}: "
+                "no .fit method and not a LightGBM Booster"
+            )
