@@ -1,5 +1,9 @@
 # Core (requerido) — rangos acotados; install.sh instala desde este archivo.
-typer[all]>=0.12,<0.21
+# typer sin el extra [all]: en typer 0.20 ese extra ya no existe y pip
+# avisa "typer 0.20.1 does not provide the extra 'all'". shellingham se
+# declara aparte porque lo usa `pentia --install-completion`.
+typer>=0.12,<0.21
+shellingham>=1.3,<2
 rich>=13.7,<15
 httpx>=0.27,<0.29
 requests>=2.32,<2.33

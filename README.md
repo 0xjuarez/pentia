@@ -16,6 +16,12 @@ interna, análisis de malware, enriquecimiento de CVE y chat local con
 un modelo de lenguaje a través de Ollama. Está pensada para usarse
 contra sistemas propios o con autorización explícita por escrito.
 
+**4.0.3 (2026-11-10).** Instalador automático (`./install.sh --all`:
+base + herramientas + ML + Ollama + modelo + verificación) y
+corrección del comando `pentia`, que fallaba al arrancar por la ruta
+del wrapper. Cada paso limpia la pantalla y la salida de `pip` es
+silenciosa. Detalle completo en [CHANGELOG.md](CHANGELOG.md).
+
 **4.0.2 (2026-11-10).** Esta versión reescribe el README sin adornos,
 añade un canal concreto para reportar vulnerabilidades (ver
 [SECURITY.md](SECURITY.md)), adapta el instalador a varias
@@ -70,7 +76,32 @@ Para instalarlas, usa `INSTALL_TOOLS=1 ./install.sh` (ver abajo).
 
 ## Instalación
 
-### 1. Clonar el repositorio
+### Instalación automática (recomendado)
+
+Un solo comando hace todo: base, herramientas del sistema, funciones
+de ML y memoria, Ollama, el modelo ligero y la verificación final.
+
+```bash
+git clone https://github.com/0xjuarez/pentia.git pentia
+cd pentia
+./install.sh --all
+```
+
+Con `--all` el instalador pregunta antes de cada paso que usa `sudo`
+o descarga algo (Ollama). Para que no pregunte nada, agrega `--yes`:
+
+```bash
+./install.sh --all --yes
+```
+
+Al final verifica que el comando `pentia` arranca de verdad
+(`pentia version` y `pentia --help`); si el wrapper falla, la
+instalación se detiene con error en vez de dejar un comando roto.
+Cada paso limpia la pantalla, así que se ve solo el proceso en curso.
+
+### Instalación manual, por partes
+
+Si prefieres instalar solo lo que necesitas:
 
 ```bash
 git clone https://github.com/0xjuarez/pentia.git pentia
@@ -78,20 +109,20 @@ cd pentia
 chmod +x install.sh
 ```
 
-### 2. Instalar (base)
+#### 1. Base
 
 ```bash
 ./install.sh
 ```
 
-El instalador crea el entorno virtual `.venv`, instala las
-dependencias base desde `requirements.txt` y deja el comando `pentia`
-disponible en `~/.local/bin`. Detecta la distribución desde
-`/etc/os-release` (Debian/Ubuntu, Fedora/RHEL, Arch, openSUSE, Alpine
-y macOS con Homebrew) para darte los comandos correctos si falta
-`pip` o `python3-venv`. No descarga ni ejecuta instaladores remotos.
+Crea el entorno virtual `.venv`, instala las dependencias base
+desde `requirements.txt` y deja el comando `pentia` disponible en
+`~/.local/bin`. Detecta la distribución desde `/etc/os-release`
+(Debian/Ubuntu, Fedora/RHEL, Arch, openSUSE, Alpine y macOS con
+Homebrew) para darte los comandos correctos si falta `pip` o
+`python3-venv`. No descarga ni ejecuta instaladores remotos.
 
-### 3. Herramientas de escaneo del sistema (opcional)
+#### 2. Herramientas de escaneo del sistema (opcional)
 
 ```bash
 INSTALL_TOOLS=1 ./install.sh
@@ -110,7 +141,7 @@ cargo install rustscan
 gem install wpscan
 ```
 
-### 4. Funciones de ML y memoria (opcional)
+#### 3. Funciones de ML y memoria (opcional)
 
 ```bash
 INSTALL_HEAVY=1 ./install.sh
@@ -119,7 +150,7 @@ INSTALL_HEAVY=1 ./install.sh
 Instala los paquetes de aprendizaje automático uno por uno: si uno
 falla, avisa y sigue con el resto en lugar de abortar todo.
 
-### 5. Chat local con Ollama (opcional, solo para `pentia chat`)
+#### 4. Chat local con Ollama (opcional, solo para `pentia chat`)
 
 ```bash
 # Instala Ollama desde https://ollama.com/download y luego:
@@ -130,7 +161,7 @@ El modelo por defecto es `qwen2.5-coder:1.5b` (alrededor de 1 GB),
 elegido para que corra en equipos comunes. Puedes usar otro modelo
 con `OLLAMA_MODEL` o con `pentia chat --model <nombre>`.
 
-### 6. Verificar la instalación
+#### 5. Verificar la instalación
 
 ```bash
 pentia version
@@ -374,4 +405,4 @@ necesidades.
 ---
 
 **Última actualización**: 10 de noviembre de 2026
-**Versión**: 4.0.2
+**Versión**: 4.0.3

@@ -2,6 +2,33 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 
+## [4.0.3] - 2026-11-10 — Instalador automático y corrección del comando `pentia`
+
+### Instalador
+- Nuevo modo `./install.sh --all`: hace todo en una sola corrida —
+  instalación base, herramientas del sistema, ML pesado, Ollama,
+  modelo `qwen2.5-coder:1.5b` y verificación final. Con `--yes` (o
+  `-y`) confirma las preguntas automáticamente; sin él, cada paso
+  con `sudo` o descarga pregunta antes de continuar.
+- Corrección del wrapper generado en `~/.local/bin/pentia`: apuntaba
+  al directorio del propio wrapper en vez de al repositorio, y las
+  comillas escapadas dejaban una comilla literal al inicio de la
+  ruta, por lo que `pentia` fallaba con `cd: "/home/.../.local/bin:
+  No such file or directory`. Ahora la ruta del repositorio se
+  incrusta al instalar (heredoc entrecomillado + `printf %q`) y el
+  wrapper apunta al repo.
+- Los códigos de color se imprimían literalmente (`\033[0;36m...`)
+  dentro de los mensajes: las variables de color ahora usan
+  `$'\033[...'` (ANSI-C), así el byte ESC es real en todos lados.
+- Cada paso limpia la pantalla (solo si hay terminal) y la salida
+  de `pip` es silenciosa (`-q`): se ve solo el proceso en curso.
+- Nuevo paso de verificación (7/7): el instalador ejecuta
+  `pentia version` y `pentia --help` con el comando generado y
+  falla en voz alta si el wrapper no arranca.
+- `typer[all]` eliminado: en typer 0.20 ese extra ya no existe y
+  pip avisaba en cada instalación. Ahora es `typer` + `shellingham`
+  declarado aparte (lo usa `--install-completion`).
+
 ## [4.0.2] - 2026-11-10 — Documentación, instalador multi-distro y modelo ligero
 
 Sin cambios de funcionalidad de escaneo: esta versión es

@@ -550,7 +550,7 @@ def serve(
 def version():
     """Información de versión."""
     show_banner()
-    console.print(f"\n  [bold]Versión:[/]   [green]4.0.2[/]")
+    console.print(f"\n  [bold]Versión:[/]   [green]4.0.3[/]")
     console.print(f"  [bold]Python:[/]    [cyan]{sys.version.split()[0]}[/]")
     console.print(f"  [bold]Platform:[/]  [cyan]{sys.platform}[/]")
     console.print(f"  [bold]Estado:[/]    [yellow]En desarrollo[/]")
