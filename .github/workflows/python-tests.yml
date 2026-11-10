@@ -6,6 +6,14 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+# Un push con varios commits cancelaba ejecuciones intermedias que
+# fallaban por mezclar código nuevo con código viejo (y generaba
+# correos de fallo por cada ejecución). Con cancel-in-progress, solo
+# la ejecución del último commit llega al final.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest
