@@ -122,6 +122,26 @@ that target. This is a usability bug as much as a security one — a real
 user asking about a real host could get tool documentation back instead of
 their findings.
 
+### Systematic evaluation (controlled setup)
+
+A follow-up harness (real `MemoryStore` / `RAGPipeline.answer()`) ran the
+same attack pattern in a controlled store: 6 payload types (instruction
+override, severity downgrade, finding suppression, attacker-chosen marker,
+fake `[SYSTEM]` marker, fake token exfiltration) x baseline vs a delimiter
++ untrusted-context framing defense, 3 trials each, `qwen2.5-coder:1.5b`,
+temperature 0.1 — 49 runs total (42 attack + 7 controls), 0 errors. The
+poisoned note was retrieved in 42/42 attack runs, but the model followed
+the injected instruction in 0/42 (0% attack success, baseline and defended
+alike; chat-path arm 0/6). Controls passed 7/7. So in this synthetic
+English setup the attack fails at the obedience step even though retrieval
+succeeds every time — while the manual real-recon test above (Spanish
+question, ANSI-colored WhatWeb output, competing real notes, n=1 per k)
+produced full compliance at k=4. Obedience is sensitive to payload style,
+question phrasing, and context composition, not a deterministic property
+of the system. The defense showed no measurable benefit here (0% vs 0%);
+it can only demonstrate value against a payload/model where the baseline
+succeeds.
+
 ### Secondary finding: DoS via context inflation
 
 `core/ai.py`'s CLI fallback path has a hardcoded 30-second timeout
@@ -155,6 +175,12 @@ pollution, independent of whether any instruction is obeyed.
 - Tested a single, fairly explicit payload style ("SYSTEM NOTE"). A
   payload disguised as operational context (e.g. a fake maintenance notice)
   was prepared but not fully evaluated due to time constraints.
+- A systematic follow-up (6 payloads, 3 trials, 49 runs) found 0%
+  obedience in a controlled synthetic setup, even with the poison retrieved
+  in 42/42 runs — while the manual test complied at k=4. The two setups
+  differ (synthetic English notes vs real ANSI-colored recon output,
+  English vs Spanish question), so the attack's success is setup-sensitive;
+  see "Systematic evaluation" above.
 - The embedding-ranking issue (generic help text outranking real notes)
   was observed, not characterized across many queries — it may be specific
   to short, generic queries like the ones used here.
