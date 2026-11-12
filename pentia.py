@@ -49,7 +49,7 @@ def _import_optional(module: str, *attrs: str, alias: Optional[str] = None) -> N
 
 _import_optional("core.orchestrator", "Orchestrator")
 _import_optional("core.cve_intelligence", "CVEIntelligence")
-_import_optional("core.memory", "MemoryStore")
+_import_optional("core.memory", "MemoryStore", "extract_target")
 _import_optional("core.intel", "enrich_service")
 _import_optional("core.scoring", "score_finding")
 _import_optional("reports.generator", "write_reports")
@@ -480,7 +480,7 @@ def chat(
             q = user_input[8:]
             if mem:
                 try:
-                    items = asyncio.run(mem.retrieve(q, k=3))
+                    items = asyncio.run(mem.retrieve(q, k=3, target=extract_target(q)))
                 except RuntimeError:
                     console.print("[yellow]Memoria no disponible (ChromaDB no instalado).[/]")
                     continue
@@ -494,7 +494,12 @@ def chat(
         context = None
         if mem:
             try:
-                items = asyncio.run(mem.retrieve(user_input, k=3))
+                # Target-scoped retrieval (v4.0.4): a question naming
+                # exactly one host is answered from that host's notes
+                # only; otherwise retrieval stays unfiltered, as before.
+                items = asyncio.run(
+                    mem.retrieve(user_input, k=3, target=extract_target(user_input))
+                )
                 if items:
                     context = "\n\n".join(i.get("text", "") for i in items)
             except Exception:
@@ -550,7 +555,7 @@ def serve(
 def version():
     """Información de versión."""
     show_banner()
-    console.print(f"\n  [bold]Versión:[/]   [green]4.0.3[/]")
+    console.print(f"\n  [bold]Versión:[/]   [green]4.0.4[/]")
     console.print(f"  [bold]Python:[/]    [cyan]{sys.version.split()[0]}[/]")
     console.print(f"  [bold]Platform:[/]  [cyan]{sys.platform}[/]")
     console.print(f"  [bold]Estado:[/]    [yellow]En desarrollo[/]")

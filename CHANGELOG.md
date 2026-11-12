@@ -2,6 +2,27 @@
 
 Todos los cambios notables en este proyecto serán documentados en este archivo.
 
+## [4.0.4] - 2026-11-11 — Recuperación con alcance por objetivo (mitigación de memory poisoning)
+
+### Seguridad
+- `MemoryStore.retrieve()` acepta ahora `target`: cuando se pasa, la
+  consulta a ChromaDB lleva `where={"target": target}` y solo devuelve
+  notas cuyo metadato `target` coincide exactamente. Sin `target`, el
+  comportamiento no cambia (sin filtro, como antes).
+- `RAGPipeline.answer()` y los chats (`pentia chat`, `POST /api/chat`)
+  derivan el objetivo de la pregunta con `extract_target()`: si la
+  pregunta nombra exactamente un host (IPv4 o hostname con punto), la
+  respuesta se construye solo con notas de ese host; si no nombra
+  ninguno o nombra varios, la recuperación sigue sin filtro (limitación
+  documentada en el write-up).
+- Medido en el harness de evaluación (6 payloads de poisoning x 3
+  ensayos, solo recuperación, sin LLM): sin filtro el veneno se
+  recupera en 18/18 casos; con el filtro, en 0/18, y las 3 notas
+  benignas del objetivo preguntado se siguen recuperando (3/3 en
+  18/18 casos). Detalle en
+  `docs/security-research/rag-memory-poisoning.md` (sección
+  "Target-scoped retrieval (measured)").
+
 ## [4.0.3] - 2026-11-10 — Instalador automático y corrección del comando `pentia`
 
 ### Instalador

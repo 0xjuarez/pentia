@@ -16,6 +16,14 @@ interna, análisis de malware, enriquecimiento de CVE y chat local con
 un modelo de lenguaje a través de Ollama. Está pensada para usarse
 contra sistemas propios o con autorización explícita por escrito.
 
+**4.0.4 (2026-11-11).** Recuperación con alcance por objetivo
+(`where={"target": ...}` en `MemoryStore.retrieve`): una pregunta que
+nombra un solo host ya solo devuelve notas de ese host, así que un
+objetivo escaneado no puede contaminar respuestas sobre otro objetivo.
+Mitigación medida de la vulnerabilidad de memory poisoning en el
+pipeline RAG (ver `docs/security-research/rag-memory-poisoning.md`).
+Detalle completo en [CHANGELOG.md](CHANGELOG.md).
+
 **4.0.3 (2026-11-10).** Instalador automático (`./install.sh --all`:
 base + herramientas + ML + Ollama + modelo + verificación) y
 corrección del comando `pentia`, que fallaba al arrancar por la ruta
@@ -404,5 +412,5 @@ necesidades.
 
 ---
 
-**Última actualización**: 10 de noviembre de 2026
-**Versión**: 4.0.3
+**Última actualización**: 11 de noviembre de 2026
+**Versión**: 4.0.4
