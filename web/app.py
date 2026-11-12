@@ -28,7 +28,7 @@ from core.validation import validate_model_name, validate_target
 logger = logging.getLogger("pentia.web")
 logger.setLevel(logging.INFO)
 
-VERSION = "4.0.3"
+VERSION = "4.0.4"
 
 
 class ChatRequest(BaseModel):
@@ -216,9 +216,14 @@ def create_app() -> FastAPI:
         context = None
         if req.memory_enabled:
             try:
-                from core.memory import MemoryStore
+                from core.memory import MemoryStore, extract_target
                 mem = MemoryStore()
-                items = await mem.retrieve(req.message, k=3)
+                # Target-scoped retrieval (v4.0.4): a message naming
+                # exactly one host is answered from that host's notes
+                # only; otherwise retrieval stays unfiltered, as before.
+                items = await mem.retrieve(
+                    req.message, k=3, target=extract_target(req.message)
+                )
                 if items:
                     context = "\n\n".join(i.get("text", "") for i in items)
                     logger.debug(f"Contexto de memoria: {len(context)} caracteres")
