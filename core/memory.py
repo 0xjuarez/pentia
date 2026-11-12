@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 import uuid
 from typing import Dict, List, Optional
 
@@ -16,6 +17,38 @@ AVAILABLE = chromadb is not None
 from .embeddings import EmbeddingsProvider
 
 logger = logging.getLogger("pentia.memory")
+
+
+# Target extraction for target-scoped retrieval (v4.0.4, mitigation for
+# the RAG memory-poisoning finding): a question that names exactly one
+# host (IPv4 or dotted hostname) can be answered from that host's notes
+# only. Hostnames need a dot and an alphabetic TLD, so bare words
+# ("apache") and version numbers ("2.4.62") are never treated as targets.
+_IPV4_RE = re.compile(
+    r"\b(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)"
+    r"(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}\b"
+)
+_HOSTNAME_RE = re.compile(
+    r"\b(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}\b"
+)
+
+
+def extract_target(text: str) -> Optional[str]:
+    """Return the single host named in `text`, or None.
+
+    Exactly one distinct IPv4/hostname candidate -> that candidate.
+    Zero or several candidates -> None, and the caller falls back to
+    unfiltered retrieval. The filter is an exact match on the `target`
+    metadata recorded at ingest time, so a question that names a host in
+    a different form than it was scanned under (e.g. "127.0.0.1" vs
+    "http://127.0.0.1:8080") will not match that host's notes.
+    """
+    if not text:
+        return None
+    candidates = set(_IPV4_RE.findall(text)) | set(_HOSTNAME_RE.findall(text))
+    if len(candidates) == 1:
+        return next(iter(candidates))
+    return None
 
 
 class MemoryStore:
@@ -110,7 +143,7 @@ class MemoryStore:
         if callable(persist):
             await asyncio.to_thread(persist)
 
-    async def retrieve(self, query: str, k: int = 4) -> List[Dict]:
+    async def retrieve(self, query: str, k: int = 4, target: Optional[str] = None) -> List[Dict]:
         if self.collection is None:
             raise RuntimeError(
                 "Memoria no disponible: ChromaDB no está instalado o no se pudo "
@@ -119,7 +152,14 @@ class MemoryStore:
             )
 
         query_vector = await self.embeddings.embed_text(query)
-        results = await asyncio.to_thread(self.collection.query, query_embeddings=[query_vector], n_results=k)
+        query_kwargs = {"query_embeddings": [query_vector], "n_results": k}
+        if target is not None:
+            # Target-scoped retrieval (v4.0.4): only notes whose stored
+            # `target` metadata matches exactly are returned, so a query
+            # about host A cannot surface notes from host B. target=None
+            # keeps the previous unfiltered behavior.
+            query_kwargs["where"] = {"target": target}
+        results = await asyncio.to_thread(self.collection.query, **query_kwargs)
         documents = results.get("documents", [[]])[0]
         metadatas = results.get("metadatas", [[]])[0]
         return [
@@ -127,8 +167,8 @@ class MemoryStore:
             for text, metadata in zip(documents, metadatas)
         ]
 
-    async def summary(self, query: str) -> str:
-        items = await self.retrieve(query)
+    async def summary(self, query: str, k: int = 4, target: Optional[str] = None) -> str:
+        items = await self.retrieve(query, k=k, target=target)
         return "\n\n".join([item["text"] for item in items])
 
     async def ingest_documents(self, documents: List[Dict[str, str]]):
